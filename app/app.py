@@ -232,9 +232,13 @@ st.markdown(f"""
 
     .ai-console-header {{
         position: relative !important;
-        padding-bottom: 16px !important;
-        margin-bottom: 16px !important;
+        margin-top: -60px !important;      /* Pull header up to negate the column's 60px top padding */
+        margin-left: -24px !important;     /* Pull header left to negate the column's 24px left padding */
+        margin-right: -24px !important;    /* Pull header right to negate the column's 24px right padding */
+        padding: 20px 24px 20px 24px !important; /* Re-apply padding inside the header */
+        margin-bottom: 20px !important;    /* Give proper space before chat starts */
         border-bottom: 1px solid #30363d !important;
+        background-color: #161b22 !important;
     }}
     .ai-console-header h3 {{
         white-space: nowrap !important;
