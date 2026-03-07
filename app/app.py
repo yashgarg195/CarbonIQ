@@ -31,51 +31,162 @@ from app.ai_insights import (
 st.set_page_config(
     page_title="CarbonIQ | Carbon Intelligence",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# ── Custom CSS ────────────────────────────────────────────────────────────────
-st.markdown("""
+# ── Application State ─────────────────────────────────────────────────────────
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+# Read navigation from query params
+_qp = st.query_params
+_valid_pages = {"Overview", "Estimator", "Analytics", "Simulator"}
+_current_page = _qp.get("page", "Overview")
+if _current_page not in _valid_pages:
+    _current_page = "Overview"
+
+# ── Top Ribbon Navigation ────────────────────────────────────────────────────
+# Build the active page indicator for pure-HTML rendering
+_nav_items = [
+    ("Overview", "Overview"),
+    ("Estimator", "Shipment Estimator"),
+    ("Analytics", "Lane Analytics"),
+    ("Simulator", "What-If Simulator"),
+]
+_nav_buttons_html = ""
+for _page_key, _label in _nav_items:
+    _active = _current_page == _page_key
+    _cls = "topnav-btn topnav-active" if _active else "topnav-btn"
+    _nav_buttons_html += f'<a href="?page={_page_key}" class="{_cls}" target="_top" style="text-decoration:none;">{_label}</a>'
+
+st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
 
     /* Global Typography & Background */
-    .stApp {
+    .stApp {{
         font-family: 'Outfit', sans-serif;
         background: radial-gradient(circle at top right, #1a1c2c, #0f111a);
         color: #e6e6e6;
-    }
+    }}
 
-    /* Hide Streamlit Header & Footer */
-    header[data-testid="stHeader"] {
+    /* Hide Streamlit Header & Footer & Sidebar */
+    header[data-testid="stHeader"] {{
         visibility: hidden;
         height: 0% !important;
-    }
-    footer {
+    }}
+    footer {{
         visibility: hidden;
-    }
-    #MainMenu {
+    }}
+    #MainMenu {{
         visibility: hidden;
-    }
+    }}
+    section[data-testid="stSidebar"] {{
+        display: none !important;
+    }}
+    button[data-testid="baseButton-headerNoPadding"] {{
+        display: none !important;
+    }}
 
-    /* Professional Sidebar */
-    section[data-testid="stSidebar"] {
-        background-color: rgba(22, 27, 34, 0.95);
-        border-right: 1px solid rgba(48, 54, 61, 0.5);
-        backdrop-filter: blur(10px);
-    }
-    
     /* Layout structural spacing */
-    .block-container {
-        padding-top: 2rem !important;
+    .block-container {{
+        padding-top: 1.5rem !important;
         padding-bottom: 2rem !important;
         padding-left: 3rem !important;
         padding-right: 3rem !important;
         max-width: 100% !important;
-    }
+    }}
 
-    /* Fixed Right AI Console Pane - TARGET ONLY THE TOP-LEVEL LAYOUT */
-    div[data-testid="stMainBlockContainer"] > div > div > div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(2) {
+    /* Push main content below fixed nav */
+    div[data-testid="stMainBlockContainer"] {{
+        padding-top: 100px !important;
+    }}
+
+    /* ═══════════════════════════════════════════
+       AWS-STYLE TOP NAV BAR
+       ═══════════════════════════════════════════ */
+    .topnav-bar {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 350px;
+        height: 60px;
+        z-index: 1005;
+        background: #161b22;
+        border-bottom: 1px solid #30363d;
+        display: flex;
+        align-items: stretch;
+        padding: 0;
+        margin: 0;
+    }}
+    .topnav-brand {{
+        display: flex;
+        align-items: center;
+        padding: 0 28px;
+        border-right: 1px solid #30363d;
+        white-space: nowrap;
+        min-width: fit-content;
+    }}
+    .topnav-brand .brand-name {{
+        font-size: 20px;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: -0.5px;
+    }}
+    .topnav-brand .brand-sub {{
+        font-size: 11px;
+        color: #8b949e;
+        margin-left: 10px;
+        font-weight: 400;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding-top: 2px;
+    }}
+    .topnav-items {{
+        display: flex;
+        align-items: stretch;
+        flex: 1;
+    }}
+    .topnav-btn {{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 32px;
+        font-size: 15px;
+        font-weight: 500;
+        color: #8b949e;
+        cursor: pointer;
+        border-right: 1px solid #30363d;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+        position: relative;
+        user-select: none;
+        flex: 1;
+    }}
+    .topnav-btn:hover {{
+        background: rgba(88, 166, 255, 0.06);
+        color: #c9d1d9;
+    }}
+    .topnav-btn.topnav-active {{
+        color: #ffffff;
+        font-weight: 600;
+        background: rgba(88, 166, 255, 0.08);
+    }}
+    .topnav-btn.topnav-active::after {{
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #58a6ff, #79c0ff);
+        border-radius: 3px 3px 0 0;
+    }}
+
+    /* ═══════════════════════════════════════════
+       FIXED RIGHT AI CONSOLE PANE
+       ═══════════════════════════════════════════ */
+    div[data-testid="stMainBlockContainer"] > div > div > div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(2) {{
         position: fixed !important;
         right: 0 !important;
         top: 0 !important;
@@ -87,16 +198,14 @@ st.markdown("""
         z-index: 1000 !important;
         overflow-y: auto !important;
         display: block !important;
-    }
+    }}
 
-    /* Push main content to the left to make room for fixed AI panel */
-    section[data-testid="stMain"] {
+    section[data-testid="stMain"] {{
         margin-right: 350px !important;
         width: calc(100% - 350px) !important;
-    }
+    }}
 
-    /* Fixed Chat Input aligned with fixed AI panel */
-    div[data-testid="stChatInput"] {
+    div[data-testid="stChatInput"] {{
         position: fixed !important;
         bottom: 0 !important;
         right: 0 !important;
@@ -106,91 +215,86 @@ st.markdown("""
         padding: 10px 20px 20px 20px !important;
         z-index: 1001 !important;
         left: auto !important;
-    }
+    }}
 
-    /* AI Header styling (Pinned to top of pane) */
-    .ai-console-header {
-        position: sticky !important;
+    .ai-console-header {{
+        position: fixed !important;
         top: 0 !important;
+        right: 0 !important;
+        width: 350px !important;
         background-color: #161b22 !important;
         z-index: 1002 !important;
-        padding-bottom: 10px !important;
+        padding: 20px 24px 10px 24px !important;
         border-bottom: 1px solid #30363d !important;
-        margin-bottom: 16px !important;
-        margin-top: -20px !important; /* Counteract pane padding */
-    }
-    
-    .ai-console-header h3 {
+        border-left: 1px solid #30363d !important;
+        margin: 0 !important;
+    }}
+    .ai-console-header h3 {{
         white-space: nowrap !important;
         margin: 0 !important;
         font-size: 16px !important;
         font-weight: 600 !important;
         color: #58a6ff !important;
-    }
-    .ai-console-header p {
+    }}
+    .ai-console-header p {{
         margin: 0 !important;
         font-size: 12px !important;
         color: #8b949e !important;
-    }
+    }}
 
-    /* Sidebar Navigation Browsing */
-    section[data-testid="stSidebar"] .stButton > button {
-        width: 100%;
-        background-color: transparent;
-        color: #c9d1d9;
-        border: none;
-        border-radius: 4px;
-        padding: 12px 16px;
-        text-align: left;
-        font-weight: 500;
-        font-size: 14px;
-        justify-content: flex-start;
-        transition: background-color 0.1s ease;
-        margin-bottom: 4px;
-    }
-    section[data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #21262d;
+    /* Nav link styling for anchor-based navigation */
+    a.topnav-btn {{
+        text-decoration: none !important;
+    }}
+    a.topnav-btn:visited,
+    a.topnav-btn:link {{
+        color: #8b949e;
+    }}
+    a.topnav-btn.topnav-active:visited,
+    a.topnav-btn.topnav-active:link {{
         color: #ffffff;
-    }
+    }}
 
-    /* KPI Cards - Glassmorphism */
-    .kpi-container {
+    /* ═══════════════════════════════════════════
+       KPI CARDS / GLASSMORPHISM
+       ═══════════════════════════════════════════ */
+    .kpi-container {{
         display: flex;
         gap: 24px;
         margin-bottom: 24px;
         flex-wrap: wrap;
-    }
-    .kpi-card {
+    }}
+    .kpi-card {{
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
         padding: 20px;
         backdrop-filter: blur(5px);
         transition: transform 0.3s ease, border 0.3s ease;
-    }
-    .kpi-card:hover {
+    }}
+    .kpi-card:hover {{
         transform: translateY(-5px);
         border: 1px solid rgba(58, 123, 213, 0.5);
         background: rgba(255, 255, 255, 0.05);
-    }
-    .kpi-value {
+    }}
+    .kpi-value {{
         font-size: 32px;
         font-weight: 700;
         background: linear-gradient(135deg, #fff 0%, #aaa 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin: 8px 0;
-    }
-    .kpi-label {
+    }}
+    .kpi-label {{
         font-size: 11px;
         color: #8b949e;
         text-transform: uppercase;
         letter-spacing: 1.5px;
         font-weight: 600;
-    }
+    }}
 
-    /* AI Card - Neon Accent */
-    .ai-card {
+    /* AI Card */
+    .ai-card {{
         background: linear-gradient(135deg, rgba(35, 134, 54, 0.1) 0%, rgba(16, 21, 26, 0.5) 100%);
         border: 1px solid rgba(35, 134, 54, 0.3);
         border-left: 5px solid #238636;
@@ -198,45 +302,41 @@ st.markdown("""
         padding: 24px;
         margin: 24px 0;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    }
+    }}
     
-    /* Leaderboard Styles */
-    .leaderboard-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-    }
-    .leaderboard-row {
-        border-bottom: 1px solid rgba(48, 54, 61, 0.5);
-    }
-    .leaderboard-rank {
-        color: #58a6ff;
-        font-weight: 700;
-        padding: 12px;
-    }
-    .leaderboard-name {
-        padding: 12px;
-        font-weight: 500;
-    }
-    .leaderboard-value {
-        text-align: right;
-        padding: 12px;
-        color: #3fb950;
-        font-weight: 600;
-    }
+    /* Leaderboard */
+    .leaderboard-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+    .leaderboard-row {{ border-bottom: 1px solid rgba(48, 54, 61, 0.5); }}
+    .leaderboard-rank {{ color: #58a6ff; font-weight: 700; padding: 12px; }}
+    .leaderboard-name {{ padding: 12px; font-weight: 500; }}
+    .leaderboard-value {{ text-align: right; padding: 12px; color: #3fb950; font-weight: 600; }}
 
     /* Page headers */
-    .page-header {
+    .page-header {{
         font-size: 32px;
         font-weight: 700;
         background: linear-gradient(90deg, #fff, #8b949e);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 8px;
-    }
-    
-    /* Fixed Chat Pane logic remains... */
+        margin-bottom: 4px;
+    }}
+    .page-subtitle {{
+        font-size: 14px;
+        color: #8b949e;
+        margin-bottom: 28px;
+    }}
 </style>
+
+<!-- ═══ AWS-STYLE FIXED TOP NAV BAR ═══ -->
+<div class="topnav-bar">
+    <div class="topnav-brand">
+        <span class="brand-name">CarbonIQ</span>
+        <span class="brand-sub">Carbon Intelligence</span>
+    </div>
+    <div class="topnav-items">
+        {_nav_buttons_html}
+    </div>
+</div>
 """, unsafe_allow_html=True)
 
 
@@ -249,32 +349,7 @@ def load_data():
 
 df = load_data()
 
-# ── Application State ─────────────────────────────────────────────────────────
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "Overview"
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-# ── Left Ribbon Navigation ────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("<h3 style='color: #ffffff; padding: 0 16px; margin-bottom: 0;'>CarbonIQ</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #8b949e; font-size: 12px; padding: 0 16px; margin-bottom: 24px;'>Carbon Intelligence</p>", unsafe_allow_html=True)
-
-    st.markdown("<p style='color: #8b949e; font-size: 11px; text-transform: uppercase; font-weight: 600; padding: 0 16px; margin: 16px 0 8px 0;'>Dashboards</p>", unsafe_allow_html=True)
-    if st.button("Overview", key="nav_overview"):
-        st.session_state.current_page = "Overview"
-    
-    st.markdown("<p style='color: #8b949e; font-size: 11px; text-transform: uppercase; font-weight: 600; padding: 0 16px; margin: 16px 0 8px 0;'>Tools</p>", unsafe_allow_html=True)
-    if st.button("Shipment Estimator", key="nav_estimator"):
-        st.session_state.current_page = "Estimator"
-    if st.button("Lane Analytics", key="nav_analytics"):
-        st.session_state.current_page = "Analytics"
-    if st.button("What-If Simulator", key="nav_simulator"):
-        st.session_state.current_page = "Simulator"
-
-    st.markdown("---")
-
-page = st.session_state.current_page
+page = _current_page
 
 # ── Main 3:1 Layout Grid ──────────────────────────────────────────────────────
 main_col, ai_col = st.columns([7, 3], gap="small")
@@ -708,24 +783,20 @@ with main_col:
                 full_ev = simulate_ev_switch(df, 100)
                 full_cons = simulate_load_improvement(df, 30) # Max 100% load
                 
-                rec_col1, rec_col2 = st.columns(2)
-                with rec_col1:
-                    st.markdown(f"""
-                    <div style="background: rgba(88, 166, 255, 0.05); border: 1px dashed rgba(88, 166, 255, 0.3); border-radius: 10px; padding: 16px;">
+                st.markdown(f"""
+                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 250px; background: rgba(88, 166, 255, 0.05); border: 1px dashed rgba(88, 166, 255, 0.3); border-radius: 10px; padding: 16px;">
                         <div style="font-size: 11px; color: #58a6ff; font-weight: 700; text-transform: uppercase;">Next-Best Technology</div>
                         <div style="font-size: 16px; font-weight: 600; margin: 8px 0;">100% EV Transition</div>
                         <div style="font-size: 12px; color: #c9d1d9;">Predicted impact: <span style="color: #3fb950; font-weight: 700;">-{full_ev['savings_pct']}% CO₂e</span></div>
                     </div>
-                    """, unsafe_allow_html=True)
-                
-                with rec_col2:
-                    st.markdown(f"""
-                    <div style="background: rgba(63, 185, 80, 0.05); border: 1px dashed rgba(63, 185, 80, 0.3); border-radius: 10px; padding: 16px;">
+                    <div style="flex: 1; min-width: 250px; background: rgba(63, 185, 80, 0.05); border: 1px dashed rgba(63, 185, 80, 0.3); border-radius: 10px; padding: 16px;">
                         <div style="font-size: 11px; color: #3fb950; font-weight: 700; text-transform: uppercase;">Next-Best Efficiency</div>
                         <div style="font-size: 16px; font-weight: 600; margin: 8px 0;">Max Load Consolidation</div>
                         <div style="font-size: 12px; color: #c9d1d9;">Predicted impact: <span style="color: #3fb950; font-weight: 700;">-{full_cons['savings_pct']}% CO₂e</span></div>
                     </div>
-                    """, unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
 
             else:
                 st.info("Adjust the scenario levers and click 'Run Scenario' to see projected emission reductions and strategic recommendations.")
