@@ -231,16 +231,10 @@ st.markdown(f"""
     }}
 
     .ai-console-header {{
-        position: fixed !important;
-        top: 0 !important;
-        right: 0 !important;
-        width: 350px !important;
-        background-color: #161b22 !important;
-        z-index: 1002 !important;
-        padding: 20px 24px 10px 24px !important;
+        position: relative !important;
+        padding-bottom: 16px !important;
+        margin-bottom: 16px !important;
         border-bottom: 1px solid #30363d !important;
-        border-left: 1px solid #30363d !important;
-        margin: 0 !important;
     }}
     .ai-console-header h3 {{
         white-space: nowrap !important;
@@ -254,6 +248,7 @@ st.markdown(f"""
         font-size: 12px !important;
         color: #8b949e !important;
     }}
+
 
 
     /* Nav link styling */
@@ -448,36 +443,7 @@ with ai_col:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-    # JS to bottom-align chat messages and auto-scroll
-    components.html("""
-    <script>
-    (function() {
-        function fixChat() {
-            // Find the scrollable chat container (has explicit height style)
-            const wrappers = parent.document.querySelectorAll('div[data-testid="stVerticalBlockBorderWrapper"]');
-            wrappers.forEach(w => {
-                const h = w.style.height;
-                if (h && parseInt(h) > 0) {
-                    // Make the inner vertical block flex-end aligned
-                    const inner = w.querySelector('div[data-testid="stVerticalBlock"]');
-                    if (inner) {
-                        inner.style.display = 'flex';
-                        inner.style.flexDirection = 'column';
-                        inner.style.justifyContent = 'flex-end';
-                        inner.style.minHeight = '100%';
-                    }
-                    // Also scroll to bottom for overflow cases
-                    w.scrollTop = w.scrollHeight;
-                }
-            });
-        }
-        fixChat();
-        setTimeout(fixChat, 300);
-        setTimeout(fixChat, 800);
-        setTimeout(fixChat, 2000);
-    })()
-    </script>
-    """, height=0)
+
 
     # Fixed Chat input handled by CSS (pinned to bottom-right)
     if not ai_is_available():
