@@ -351,7 +351,7 @@ st.markdown(_nav_btn_style, unsafe_allow_html=True)
 _nav_btn_cols = st.columns(4)
 for _i, (_page_key, _label) in enumerate(_nav_items):
     with _nav_btn_cols[_i]:
-        if st.button(_label, key=f"nav_{_page_key}", use_container_width=True):
+        if st.button(_label, key=f"nav_{_page_key}", width='stretch'):
             st.session_state.current_page = _page_key
             st.rerun()
 
@@ -544,7 +544,7 @@ with main_col:
             )
             fig_trend.update_xaxes(showgrid=False)
             fig_trend.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)")
-            st.plotly_chart(fig_trend, use_container_width=True)
+            st.plotly_chart(fig_trend, width='stretch')
 
         with col_right:
             st.markdown("#### Carrier Efficiency Leaderboard (EPA Dataset)")
@@ -580,7 +580,7 @@ with main_col:
             try:
                 carriers_df = pd.read_csv(carrier_performance_path)
                 carrier_list = ["(General / Unknown)"] + sorted(carriers_df["carrier_name"].unique().tolist())
-            except:
+            except Exception:
                 carrier_list = ["(General / Unknown)"]
 
             origin = st.selectbox("Origin City", origins, index=0, key="est_origin")
@@ -596,7 +596,7 @@ with main_col:
             vehicle_type = st.selectbox("Vehicle Type", get_all_vehicle_types(), key="est_vehicle")
             load_factor = st.slider("Load Factor", min_value=0.1, max_value=1.0, value=0.8, step=0.05)
 
-            estimate_btn = st.button("Estimate Emissions", use_container_width=True, type="primary")
+            estimate_btn = st.button("Estimate Emissions", width='stretch', type="primary")
 
         with col_result:
             st.markdown("#### Estimation Result")
@@ -652,7 +652,7 @@ with main_col:
                     height=260,
                     margin=dict(l=20, r=20, t=40, b=20),
                 )
-                st.plotly_chart(fig_gauge, use_container_width=True)
+                st.plotly_chart(fig_gauge, width='stretch')
             else:
                 st.info("Fill in the shipment details and click Estimate Emissions to see the result.")
 
@@ -667,7 +667,6 @@ with main_col:
         lane_df = lane_risk_classification(df)
 
         # Risk summary
-        c1, c2, c3 = st.columns(3)
         high_count = len(lane_df[lane_df["risk"] == "High"])
         med_count = len(lane_df[lane_df["risk"] == "Medium"])
         low_count = len(lane_df[lane_df["risk"] == "Low"])
@@ -718,7 +717,7 @@ with main_col:
                 height=400,
                 margin=dict(l=20, r=20, t=20, b=20),
             )
-            st.plotly_chart(fig_scatter, use_container_width=True)
+            st.plotly_chart(fig_scatter, width='stretch')
 
         with col_right:
             st.markdown("#### Risk Distribution")
@@ -739,7 +738,7 @@ with main_col:
                 margin=dict(l=0, r=0, t=10, b=10),
             )
             fig_risk.update_traces(textposition="inside", textinfo="percent+label")
-            st.plotly_chart(fig_risk, use_container_width=True)
+            st.plotly_chart(fig_risk, width='stretch')
 
         # Lane table
         st.markdown("#### Detailed Lane Data")
@@ -753,7 +752,7 @@ with main_col:
 
         st.dataframe(
             display_df,
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
             column_config={
                 "Risk": st.column_config.TextColumn("Risk", help="Emission intensity risk level"),
@@ -781,7 +780,7 @@ with main_col:
             reroute_pct = st.slider("Route Optimization (%)", 0, 30, 10, 1, key="sim_reroute")
 
             st.markdown("---")
-            run_btn = st.button("Run Scenario", use_container_width=True, type="primary")
+            run_btn = st.button("Run Scenario", width='stretch', type="primary")
 
         with col_results:
             if run_btn:
@@ -847,16 +846,16 @@ with main_col:
                         textposition="outside",
                     ))
 
-                fig_waterfall.update_layout(
-                    template="plotly_dark",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    showlegend=False,
-                    height=400,
-                    margin=dict(l=20, r=20, t=30, b=20),
-                    yaxis_title="CO₂e Saved (kg)",
-                )
-                st.plotly_chart(fig_waterfall, use_container_width=True)
+                    fig_waterfall.update_layout(
+                        template="plotly_dark",
+                        paper_bgcolor="rgba(0,0,0,0)",
+                        plot_bgcolor="rgba(0,0,0,0)",
+                        showlegend=False,
+                        height=400,
+                        margin=dict(l=20, r=20, t=30, b=20),
+                        yaxis_title="CO₂e Saved (kg)",
+                    )
+                    st.plotly_chart(fig_waterfall, width='stretch')
 
                 # Before vs After comparison
                 st.markdown("#### Before vs After")
@@ -878,7 +877,7 @@ with main_col:
                     margin=dict(l=20, r=20, t=20, b=20),
                     yaxis_title="Total CO₂e (kg)",
                 )
-                st.plotly_chart(fig_compare, use_container_width=True)
+                st.plotly_chart(fig_compare, width='stretch')
 
                 # AI Narrative
                 if ai_is_available():
