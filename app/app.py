@@ -63,7 +63,7 @@ st.markdown("""
     }
 
     /* Fixed Right AI Console Pane - TARGET ONLY THE TOP-LEVEL LAYOUT */
-    div[data-testid="stHorizontalBlock"]:first-of-type > div[data-testid="stColumn"]:nth-child(2) {
+    div[data-testid="stMainBlockContainer"] > div > div > div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(2) {
         position: fixed !important;
         right: 0 !important;
         top: 0 !important;
@@ -72,7 +72,7 @@ st.markdown("""
         background-color: #161b22 !important;
         border-left: 1px solid #30363d !important;
         padding: 60px 24px 80px 24px !important;
-        z-index: 1000 !important; /* Higher z-index to stay on top */
+        z-index: 1000 !important;
         overflow-y: auto !important;
         display: block !important;
     }
@@ -92,7 +92,7 @@ st.markdown("""
         background-color: #161b22 !important;
         border-top: 1px solid #30363d !important;
         padding: 10px 20px 20px 20px !important;
-        z-index: 101 !important;
+        z-index: 1001 !important;
         left: auto !important;
     }
 
@@ -101,7 +101,7 @@ st.markdown("""
         position: sticky !important;
         top: 0 !important;
         background-color: #161b22 !important;
-        z-index: 102 !important;
+        z-index: 1002 !important;
         padding-bottom: 10px !important;
         border-bottom: 1px solid #30363d !important;
         margin-bottom: 16px !important;
@@ -265,8 +265,7 @@ with st.sidebar:
 page = st.session_state.current_page
 
 # ── Main 3:1 Layout Grid ──────────────────────────────────────────────────────
-# We use [10, 0.1] because ai_col is position:fixed and shouldn't take up space here
-main_col, ai_col = st.columns([10, 0.1], gap="small")
+main_col, ai_col = st.columns([7, 3], gap="small")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1: Overview Dashboard
