@@ -525,7 +525,7 @@ with main_col:
 
         with col_left:
             st.markdown("#### Monthly Emission Trend (kg CO₂e)")
-            trend_df = emission_trend(df, freq="M")
+            trend_df = emission_trend(df, freq="ME")
             fig_trend = px.area(
                 trend_df,
                 x="date",

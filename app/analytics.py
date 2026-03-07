@@ -69,13 +69,13 @@ def top_emission_lanes(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     return lanes
 
 
-def emission_trend(df: pd.DataFrame, freq: str = "M") -> pd.DataFrame:
+def emission_trend(df: pd.DataFrame, freq: str = "ME") -> pd.DataFrame:
     """
     Compute emission totals over time, grouped by fuel type.
 
     Args:
         df: Shipment DataFrame with 'date', 'co2e_kg', and 'fuel_type' columns.
-        freq: Pandas frequency alias ('W' for weekly, 'M' for monthly).
+        freq: Pandas frequency alias ('W' for weekly, 'ME' for month-end).
 
     Returns:
         DataFrame with columns: date, fuel_type, co2e_kg.
