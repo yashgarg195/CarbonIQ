@@ -3,6 +3,7 @@
 import os
 import sys
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -37,13 +38,10 @@ st.set_page_config(
 # ── Application State ─────────────────────────────────────────────────────────
 if "messages" not in st.session_state:
     st.session_state.messages = []
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "Overview"
 
-# Read navigation from query params
-_qp = st.query_params
-_valid_pages = {"Overview", "Estimator", "Analytics", "Simulator"}
-_current_page = _qp.get("page", "Overview")
-if _current_page not in _valid_pages:
-    _current_page = "Overview"
+_current_page = st.session_state.current_page
 
 # ── Top Ribbon Navigation ────────────────────────────────────────────────────
 # Build the active page indicator for pure-HTML rendering
@@ -57,7 +55,7 @@ _nav_buttons_html = ""
 for _page_key, _label in _nav_items:
     _active = _current_page == _page_key
     _cls = "topnav-btn topnav-active" if _active else "topnav-btn"
-    _nav_buttons_html += f'<a href="?page={_page_key}" class="{_cls}" target="_self" style="text-decoration:none;">{_label}</a>'
+    _nav_buttons_html += f'<div class="{_cls}" data-page="{_page_key}">{_label}</div>'
 
 st.markdown(f"""
 <style>
@@ -248,21 +246,11 @@ st.markdown(f"""
         flex-direction: column;
         min-height: 100%;
     }}
-    div.chat-spacer {{
-        flex-grow: 1;
-    }}
 
-    /* Nav link styling for anchor-based navigation */
-    a.topnav-btn {{
+    /* Nav link styling */
+    .topnav-btn {{
         text-decoration: none !important;
-    }}
-    a.topnav-btn:visited,
-    a.topnav-btn:link {{
-        color: #8b949e;
-    }}
-    a.topnav-btn.topnav-active:visited,
-    a.topnav-btn.topnav-active:link {{
-        color: #ffffff;
+        cursor: pointer;
     }}
 
     /* ═══════════════════════════════════════════
@@ -349,6 +337,73 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
+# Hidden navigation buttons (styled invisible, clicked via JS from the nav bar)
+_nav_btn_style = '<style>.nav-hidden {{ position: absolute; top: -9999px; left: -9999px; height: 0; overflow: hidden; opacity: 0; pointer-events: none; }}</style>'
+st.markdown(_nav_btn_style, unsafe_allow_html=True)
+_nav_btn_cols = st.columns(4)
+for _i, (_page_key, _label) in enumerate(_nav_items):
+    with _nav_btn_cols[_i]:
+        if st.button(_label, key=f"nav_{_page_key}", use_container_width=True):
+            st.session_state.current_page = _page_key
+            st.rerun()
+
+# JavaScript to wire HTML nav clicks -> hidden Streamlit buttons, and hide the button row
+components.html(f"""
+<script>
+(function() {{
+    const labels = {{
+        'Overview': 'Overview',
+        'Estimator': 'Shipment Estimator',
+        'Analytics': 'Lane Analytics',
+        'Simulator': 'What-If Simulator'
+    }};
+
+    function wireNav() {{
+        // Hide the hidden button row
+        const allBtns = parent.document.querySelectorAll('button[data-testid="stBaseButton-secondary"]');
+        const navLabels = new Set(Object.values(labels));
+        allBtns.forEach(btn => {{
+            if (navLabels.has(btn.innerText.trim())) {{
+                let el = btn;
+                for (let i = 0; i < 12; i++) {{
+                    el = el.parentElement;
+                    if (!el) break;
+                    if (el.getAttribute('data-testid') === 'stHorizontalBlock') {{
+                        el.style.position = 'absolute';
+                        el.style.top = '-9999px';
+                        el.style.height = '0';
+                        el.style.overflow = 'hidden';
+                        break;
+                    }}
+                }}
+            }}
+        }});
+
+        // Wire each HTML nav div to click the corresponding hidden Streamlit button
+        const navDivs = parent.document.querySelectorAll('.topnav-btn[data-page]');
+        navDivs.forEach(div => {{
+            div.style.cursor = 'pointer';
+            div.onclick = function() {{
+                const pageKey = div.getAttribute('data-page');
+                const targetLabel = labels[pageKey];
+                const btns = parent.document.querySelectorAll('button[data-testid="stBaseButton-secondary"]');
+                btns.forEach(b => {{
+                    if (b.innerText.trim() === targetLabel) b.click();
+                }});
+            }};
+        }});
+    }}
+
+    wireNav();
+    setTimeout(wireNav, 800);
+    setTimeout(wireNav, 2000);
+    const obs = new MutationObserver(wireNav);
+    obs.observe(parent.document.body, {{ childList: true, subtree: true }});
+    setTimeout(() => obs.disconnect(), 6000);
+}})()
+</script>
+""", height=0)
+
 
 # ── Load Data ─────────────────────────────────────────────────────────────────
 @st.cache_data
@@ -380,24 +435,28 @@ with ai_col:
     chat_container = st.container(height=600, border=False)
 
     with chat_container:
-        # Spacer pushes messages to the bottom when there are few
-        st.markdown('<div class="chat-spacer"></div>', unsafe_allow_html=True)
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
-        # Auto-scroll to bottom
-        st.markdown("""
-        <script>
-        (function() {
-            const containers = window.parent.document.querySelectorAll('div[data-testid="stVerticalBlockBorderWrapper"]');
-            containers.forEach(c => {
-                if (c.style && c.style.height) {
-                    c.scrollTop = c.scrollHeight;
+
+    # JS to scroll chat to bottom + bottom-align when few messages
+    components.html("""
+    <script>
+    (function() {
+        function scrollChat() {
+            const wrappers = parent.document.querySelectorAll('div[data-testid="stVerticalBlockBorderWrapper"]');
+            wrappers.forEach(w => {
+                if (w.style.height && parseInt(w.style.height) > 0) {
+                    w.scrollTop = w.scrollHeight;
                 }
             });
-        })();
-        </script>
-        """, unsafe_allow_html=True)
+        }
+        scrollChat();
+        setTimeout(scrollChat, 500);
+        setTimeout(scrollChat, 1500);
+    })()
+    </script>
+    """, height=0)
 
     # Fixed Chat input handled by CSS (pinned to bottom-right)
     if not ai_is_available():
