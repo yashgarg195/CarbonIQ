@@ -242,6 +242,14 @@ st.markdown(f"""
         color: #8b949e !important;
     }}
 
+    /* Align chat messages to start from the bottom and move up */
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stVerticalBlockBorderWrapper"] > div {{
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-end;
+        height: 100%;
+    }}
+
     /* Nav link styling for anchor-based navigation */
     a.topnav-btn {{
         text-decoration: none !important;
@@ -353,6 +361,49 @@ page = _current_page
 
 # ── Main 3:1 Layout Grid ──────────────────────────────────────────────────────
 main_col, ai_col = st.columns([7, 3], gap="small")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AI ASSISTANT PANEL (RIGHT COLUMN)
+# ══════════════════════════════════════════════════════════════════════════════
+with ai_col:
+    st.markdown("""
+    <div class="ai-console-header">
+        <h3>CarbonIQ Assistant</h3>
+        <p>Powered by HuggingFace Qwen</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # History container - we use st.container with height to allow internal scrolling 
+    # while the column itself stays sticky to the viewport.
+    chat_container = st.container(height=600, border=False)
+
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+    # Fixed Chat input handled by CSS (pinned to bottom-right)
+    if not ai_is_available():
+        st.warning("[Notice] AI Assistant disabled.")
+    else:
+        if prompt := st.chat_input("Ask CarbonIQ..."):
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            
+            # Immediately display user message
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                
+                # Show Thinking state
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        response = ask_carbon_agent(f"{prompt}", df)
+                        st.markdown(response)
+            
+            # Add assistant response to chat history
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1: Overview Dashboard
@@ -805,44 +856,3 @@ with main_col:
 # ══════════════════════════════════════════════════════════════════════════════
 # ══════════════════════════════════════════════════════════════════════════════
 # ══════════════════════════════════════════════════════════════════════════════
-# AI ASSISTANT PANEL (RIGHT COLUMN)
-# ══════════════════════════════════════════════════════════════════════════════
-with ai_col:
-    st.markdown("""
-    <div class="ai-console-header">
-        <h3>CarbonIQ Assistant</h3>
-        <p>Powered by HuggingFace Qwen</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # History container - we use st.container with height to allow internal scrolling 
-    # while the column itself stays sticky to the viewport.
-    chat_container = st.container(height=600, border=False)
-
-    with chat_container:
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-
-    # Fixed Chat input handled by CSS (pinned to bottom-right)
-    if not ai_is_available():
-        st.warning("[Notice] AI Assistant disabled.")
-    else:
-        if prompt := st.chat_input("Ask CarbonIQ..."):
-            # Add user message to chat history
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            
-            # Immediately display user message
-            with chat_container:
-                with st.chat_message("user"):
-                    st.markdown(prompt)
-                
-                # Show Thinking state
-                with st.chat_message("assistant"):
-                    with st.spinner("Thinking..."):
-                        response = ask_carbon_agent(f"{prompt}", df)
-                        st.markdown(response)
-            
-            # Add assistant response to chat history
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            st.rerun()
