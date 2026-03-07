@@ -46,6 +46,18 @@ st.markdown("""
         color: #e6e6e6;
     }
 
+    /* Hide Streamlit Header & Footer */
+    header[data-testid="stHeader"] {
+        visibility: hidden;
+        height: 0% !important;
+    }
+    footer {
+        visibility: hidden;
+    }
+    #MainMenu {
+        visibility: hidden;
+    }
+
     /* Professional Sidebar */
     section[data-testid="stSidebar"] {
         background-color: rgba(22, 27, 34, 0.95);
