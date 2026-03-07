@@ -88,7 +88,7 @@ st.markdown(f"""
 
     /* Layout structural spacing */
     .block-container {{
-        padding-top: 1.5rem !important;
+        padding-top: 0rem !important;
         padding-bottom: 2rem !important;
         padding-left: 3rem !important;
         padding-right: 3rem !important;
@@ -97,7 +97,22 @@ st.markdown(f"""
 
     /* Push main content below fixed nav */
     div[data-testid="stMainBlockContainer"] {{
-        padding-top: 100px !important;
+        padding-top: 70px !important;
+    }}
+
+    /* Hide the hidden nav buttons row + JS iframes from layout */
+    div[data-testid="stMainBlockContainer"] > div > div > div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] > div > div > div > div > button) {{
+        position: absolute !important;
+        top: -9999px !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+    }}
+    iframe[height="0"] {{
+        display: none !important;
+    }}
+    div[data-testid="stMainBlockContainer"] > div > div > div[data-testid="stVerticalBlock"] > div:has(iframe[height="0"]) {{
+        display: none !important;
     }}
 
     /* ═══════════════════════════════════════════
