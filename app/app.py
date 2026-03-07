@@ -61,7 +61,6 @@ st.markdown("""
     }
 
     /* Fixed Right AI Console Pane */
-    /* Updated selector: Use nth-child(2) to target the second column in the horizontal alignment block */
     div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(2) {
         position: fixed !important;
         right: 0 !important;
@@ -95,9 +94,29 @@ st.markdown("""
         left: auto !important;
     }
 
-    /* AI Header styling to prevent vertical text */
+    /* AI Header styling (Pinned to top of pane) */
+    .ai-console-header {
+        position: sticky !important;
+        top: 0 !important;
+        background-color: #161b22 !important;
+        z-index: 102 !important;
+        padding-bottom: 10px !important;
+        border-bottom: 1px solid #30363d !important;
+        margin-bottom: 16px !important;
+        margin-top: -20px !important; /* Counteract pane padding */
+    }
+    
     .ai-console-header h3 {
         white-space: nowrap !important;
+        margin: 0 !important;
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        color: #58a6ff !important;
+    }
+    .ai-console-header p {
+        margin: 0 !important;
+        font-size: 12px !important;
+        color: #8b949e !important;
     }
 
     /* Adjust main content container */
@@ -700,9 +719,9 @@ with main_col:
 # ══════════════════════════════════════════════════════════════════════════════
 with ai_col:
     st.markdown("""
-    <div class="ai-console-header" style="padding-bottom: 10px; border-bottom: 1px solid #30363d; margin-bottom: 16px;">
-        <h3 style="margin:0; font-size:16px; font-weight:600; color:#58a6ff;">🤖 CarbonIQ Assistant</h3>
-        <p style="margin:0; font-size:12px; color:#8b949e;">Powered by HuggingFace Qwen</p>
+    <div class="ai-console-header">
+        <h3>CarbonIQ Assistant</h3>
+        <p>Powered by HuggingFace Qwen</p>
     </div>
     """, unsafe_allow_html=True)
     
@@ -720,7 +739,20 @@ with ai_col:
         st.warning("[Notice] AI Assistant disabled.")
     else:
         if prompt := st.chat_input("Ask CarbonIQ..."):
+            # Add user message to chat history
             st.session_state.messages.append({"role": "user", "content": prompt})
-            response = ask_carbon_agent(f"{prompt}", df)
+            
+            # Immediately display user message
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                
+                # Show Thinking state
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        response = ask_carbon_agent(f"{prompt}", df)
+                        st.markdown(response)
+            
+            # Add assistant response to chat history
             st.session_state.messages.append({"role": "assistant", "content": response})
             st.rerun()
