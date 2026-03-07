@@ -11,14 +11,20 @@ import plotly.graph_objects as go
 # Ensure project root is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.predictor import estimate_emissions, get_all_fuel_types, get_all_vehicle_types
+from app.predictor import estimate_emissions, get_all_fuel_types, get_all_vehicle_types, get_emission_factor
 from app.analytics import (
     summary_kpis,
     top_emission_lanes,
     emission_trend,
     lane_risk_classification,
-    fuel_mix,
     carrier_efficiency_leaderboard,
+)
+
+# ── Shared Plotly dark theme ──────────────────────────────────────────────────
+DARK_LAYOUT = dict(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
 )
 from app.simulator import run_combined_scenario, simulate_ev_switch, simulate_load_improvement
 from app.ai_insights import (
@@ -255,12 +261,6 @@ st.markdown(f"""
 
 
 
-    /* Nav link styling */
-    .topnav-btn {{
-        text-decoration: none !important;
-        cursor: pointer;
-    }}
-
     /* ═══════════════════════════════════════════
        KPI CARDS / GLASSMORPHISM
        ═══════════════════════════════════════════ */
@@ -345,9 +345,7 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# Hidden navigation buttons (styled invisible, clicked via JS from the nav bar)
-_nav_btn_style = '<style>.nav-hidden {{ position: absolute; top: -9999px; left: -9999px; height: 0; overflow: hidden; opacity: 0; pointer-events: none; }}</style>'
-st.markdown(_nav_btn_style, unsafe_allow_html=True)
+# Hidden navigation buttons (styled invisible via CSS, clicked via JS from the nav bar)
 _nav_btn_cols = st.columns(4)
 for _i, (_page_key, _label) in enumerate(_nav_items):
     with _nav_btn_cols[_i]:
@@ -471,7 +469,7 @@ with ai_col:
                 # Show Thinking state
                 with st.chat_message("assistant"):
                     with st.spinner("Thinking..."):
-                        response = ask_carbon_agent(f"{prompt}", df)
+                        response = ask_carbon_agent(prompt, df)
                         st.markdown(response)
             
             # Add assistant response to chat history
@@ -541,9 +539,7 @@ with main_col:
                 labels={"co2e_kg": "", "date": "", "fuel_type": "Fuel"},
             )
             fig_trend.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
+                **DARK_LAYOUT,
                 margin=dict(l=0, r=0, t=10, b=0),
                 legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1),
                 height=260,
@@ -620,7 +616,6 @@ with main_col:
                 """, unsafe_allow_html=True)
 
                 # Formula breakdown
-                from app.predictor import get_emission_factor
                 ef = get_emission_factor(fuel_type, vehicle_type)
                 st.markdown("##### Formula Breakdown")
                 st.code(
@@ -653,8 +648,7 @@ with main_col:
                     title={"text": f"Fleet Avg: {fleet_avg:,.1f} kg", "font": {"size": 14}},
                 ))
                 fig_gauge.update_layout(
-                    template="plotly_dark",
-                    paper_bgcolor="rgba(0,0,0,0)",
+                    **DARK_LAYOUT,
                     height=260,
                     margin=dict(l=20, r=20, t=40, b=20),
                 )
@@ -717,9 +711,7 @@ with main_col:
                 },
             )
             fig_scatter.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
+                **DARK_LAYOUT,
                 height=400,
                 margin=dict(l=20, r=20, t=20, b=20),
             )
@@ -738,8 +730,7 @@ with main_col:
                 hole=0.5,
             )
             fig_risk.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
+                **DARK_LAYOUT,
                 height=300,
                 margin=dict(l=0, r=0, t=10, b=10),
             )
@@ -853,9 +844,7 @@ with main_col:
                     ))
 
                     fig_waterfall.update_layout(
-                        template="plotly_dark",
-                        paper_bgcolor="rgba(0,0,0,0)",
-                        plot_bgcolor="rgba(0,0,0,0)",
+                        **DARK_LAYOUT,
                         showlegend=False,
                         height=400,
                         margin=dict(l=20, r=20, t=30, b=20),
@@ -875,9 +864,7 @@ with main_col:
                     width=0.5,
                 ))
                 fig_compare.update_layout(
-                    template="plotly_dark",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
+                    **DARK_LAYOUT,
                     showlegend=False,
                     height=350,
                     margin=dict(l=20, r=20, t=20, b=20),
@@ -924,7 +911,3 @@ with main_col:
             else:
                 st.info("Adjust the scenario levers and click 'Run Scenario' to see projected emission reductions and strategic recommendations.")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ══════════════════════════════════════════════════════════════════════════════
-# ══════════════════════════════════════════════════════════════════════════════
-# ══════════════════════════════════════════════════════════════════════════════

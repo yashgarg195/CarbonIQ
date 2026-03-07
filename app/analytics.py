@@ -124,17 +124,6 @@ def lane_risk_classification(df: pd.DataFrame) -> pd.DataFrame:
     return lanes.sort_values("intensity", ascending=False)
 
 
-def fuel_mix(df: pd.DataFrame) -> pd.DataFrame:
-    """Return fuel type distribution for the fleet."""
-    mix = (
-        df.groupby("fuel_type")["shipment_id"]
-        .count()
-        .reset_index()
-        .rename(columns={"shipment_id": "count"})
-    )
-    mix["percentage"] = (mix["count"] / mix["count"].sum() * 100).round(1)
-    return mix
-
 
 @st.cache_data
 def carrier_efficiency_leaderboard(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
