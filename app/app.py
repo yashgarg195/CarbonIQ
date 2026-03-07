@@ -243,11 +243,13 @@ st.markdown(f"""
     }}
 
     /* Align chat messages to start from the bottom and move up */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stVerticalBlockBorderWrapper"] > div {{
+    div[data-testid="column"]:nth-of-type(2) div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {{
         display: flex;
         flex-direction: column;
-        justify-content: flex-end;
-        height: 100%;
+        min-height: 100%;
+    }}
+    div.chat-spacer {{
+        flex-grow: 1;
     }}
 
     /* Nav link styling for anchor-based navigation */
@@ -378,9 +380,24 @@ with ai_col:
     chat_container = st.container(height=600, border=False)
 
     with chat_container:
+        # Spacer pushes messages to the bottom when there are few
+        st.markdown('<div class="chat-spacer"></div>', unsafe_allow_html=True)
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
+        # Auto-scroll to bottom
+        st.markdown("""
+        <script>
+        (function() {
+            const containers = window.parent.document.querySelectorAll('div[data-testid="stVerticalBlockBorderWrapper"]');
+            containers.forEach(c => {
+                if (c.style && c.style.height) {
+                    c.scrollTop = c.scrollHeight;
+                }
+            });
+        })();
+        </script>
+        """, unsafe_allow_html=True)
 
     # Fixed Chat input handled by CSS (pinned to bottom-right)
     if not ai_is_available():
