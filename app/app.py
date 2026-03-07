@@ -402,12 +402,18 @@ components.html(f"""
         }});
     }}
 
+    // Debounced version to avoid excessive calls
+    let _navTimer = null;
+    function wireNavDebounced() {{
+        if (_navTimer) return;
+        _navTimer = setTimeout(() => {{ _navTimer = null; wireNav(); }}, 300);
+    }}
+
     wireNav();
     setTimeout(wireNav, 800);
-    setTimeout(wireNav, 2000);
-    const obs = new MutationObserver(wireNav);
+    const obs = new MutationObserver(wireNavDebounced);
     obs.observe(parent.document.body, {{ childList: true, subtree: true }});
-    setTimeout(() => obs.disconnect(), 6000);
+    setTimeout(() => obs.disconnect(), 3000);
 }})()
 </script>
 """, height=0)

@@ -1,8 +1,10 @@
 """Analytics functions for CarbonIQ — KPIs, lane analysis, and trends."""
 
 import pandas as pd
+import streamlit as st
 
 
+@st.cache_data
 def summary_kpis(df: pd.DataFrame) -> dict:
     """
     Compute fleet-wide KPI summary.
@@ -43,6 +45,7 @@ def summary_kpis(df: pd.DataFrame) -> dict:
     }
 
 
+@st.cache_data
 def top_emission_lanes(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     """
     Return top-N origin→destination pairs by total CO₂e.
@@ -69,6 +72,7 @@ def top_emission_lanes(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     return lanes
 
 
+@st.cache_data
 def emission_trend(df: pd.DataFrame, freq: str = "ME") -> pd.DataFrame:
     """
     Compute emission totals over time, grouped by fuel type.
@@ -91,6 +95,7 @@ def emission_trend(df: pd.DataFrame, freq: str = "ME") -> pd.DataFrame:
     return trend
 
 
+@st.cache_data
 def lane_risk_classification(df: pd.DataFrame) -> pd.DataFrame:
     """
     Classify lanes as High / Medium / Low emission intensity.
@@ -131,6 +136,7 @@ def fuel_mix(df: pd.DataFrame) -> pd.DataFrame:
     return mix
 
 
+@st.cache_data
 def carrier_efficiency_leaderboard(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     """
     Return top-N carriers by emission efficiency.
@@ -138,12 +144,15 @@ def carrier_efficiency_leaderboard(df: pd.DataFrame, n: int = 10) -> pd.DataFram
     """
     if 'carrier_name' not in df.columns:
         return pd.DataFrame()
-        
+
+    df_c = df.copy()
+    df_c["_tkm"] = df_c["distance_km"] * df_c["weight_tonnes"]
+
     carriers = (
-        df.groupby("carrier_name")
+        df_c.groupby("carrier_name")
         .agg(
             total_co2e=("co2e_kg", "sum"),
-            total_tkm=("distance_km", lambda x: (x * df.loc[x.index, "weight_tonnes"]).sum()),
+            total_tkm=("_tkm", "sum"),
             shipment_count=("shipment_id", "count")
         )
         .reset_index()
@@ -152,3 +161,4 @@ def carrier_efficiency_leaderboard(df: pd.DataFrame, n: int = 10) -> pd.DataFram
     carriers = carriers[carriers['shipment_count'] > 0]
     carriers["ef_kg_per_tkm"] = (carriers["total_co2e"] / carriers["total_tkm"]).round(4)
     return carriers.sort_values("ef_kg_per_tkm").head(n)
+
