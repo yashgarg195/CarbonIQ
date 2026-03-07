@@ -255,12 +255,6 @@ st.markdown(f"""
         color: #8b949e !important;
     }}
 
-    /* Align chat messages to start from the bottom and move up */
-    div[data-testid="column"]:nth-of-type(2) div[data-testid="stVerticalBlockBorderWrapper"] > div[data-testid="stVerticalBlock"] {{
-        display: flex;
-        flex-direction: column;
-        min-height: 100%;
-    }}
 
     /* Nav link styling */
     .topnav-btn {{
@@ -454,21 +448,33 @@ with ai_col:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
 
-    # JS to scroll chat to bottom + bottom-align when few messages
+    # JS to bottom-align chat messages and auto-scroll
     components.html("""
     <script>
     (function() {
-        function scrollChat() {
+        function fixChat() {
+            // Find the scrollable chat container (has explicit height style)
             const wrappers = parent.document.querySelectorAll('div[data-testid="stVerticalBlockBorderWrapper"]');
             wrappers.forEach(w => {
-                if (w.style.height && parseInt(w.style.height) > 0) {
+                const h = w.style.height;
+                if (h && parseInt(h) > 0) {
+                    // Make the inner vertical block flex-end aligned
+                    const inner = w.querySelector('div[data-testid="stVerticalBlock"]');
+                    if (inner) {
+                        inner.style.display = 'flex';
+                        inner.style.flexDirection = 'column';
+                        inner.style.justifyContent = 'flex-end';
+                        inner.style.minHeight = '100%';
+                    }
+                    // Also scroll to bottom for overflow cases
                     w.scrollTop = w.scrollHeight;
                 }
             });
         }
-        scrollChat();
-        setTimeout(scrollChat, 500);
-        setTimeout(scrollChat, 1500);
+        fixChat();
+        setTimeout(fixChat, 300);
+        setTimeout(fixChat, 800);
+        setTimeout(fixChat, 2000);
     })()
     </script>
     """, height=0)
