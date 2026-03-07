@@ -56,8 +56,8 @@ _nav_items = [
 _nav_buttons_html = ""
 for _page_key, _label in _nav_items:
     _active = _current_page == _page_key
+    _cls = "topnav-btn topnav-active" if _active else "topnav-btn"
     _nav_buttons_html += f'<a href="?page={_page_key}" class="{_cls}" target="_self" style="text-decoration:none;">{_label}</a>'
-
 
 st.markdown(f"""
 <style>
