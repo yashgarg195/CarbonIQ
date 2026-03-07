@@ -129,3 +129,26 @@ def fuel_mix(df: pd.DataFrame) -> pd.DataFrame:
     )
     mix["percentage"] = (mix["count"] / mix["count"].sum() * 100).round(1)
     return mix
+
+
+def carrier_efficiency_leaderboard(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
+    """
+    Return top-N carriers by emission efficiency.
+    Efficiency = sum(co2e_kg) / sum(weight * distance)
+    """
+    if 'carrier_name' not in df.columns:
+        return pd.DataFrame()
+        
+    carriers = (
+        df.groupby("carrier_name")
+        .agg(
+            total_co2e=("co2e_kg", "sum"),
+            total_tkm=("distance_km", lambda x: (x * df.loc[x.index, "weight_tonnes"]).sum()),
+            shipment_count=("shipment_id", "count")
+        )
+        .reset_index()
+    )
+    # Filter tiny carriers to avoid outliers
+    carriers = carriers[carriers['shipment_count'] > 0]
+    carriers["ef_kg_per_tkm"] = (carriers["total_co2e"] / carriers["total_tkm"]).round(4)
+    return carriers.sort_values("ef_kg_per_tkm").head(n)

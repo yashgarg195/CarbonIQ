@@ -1,19 +1,12 @@
 """What-If scenario simulator for CarbonIQ."""
 
 import pandas as pd
-from app.predictor import get_emission_factor
+from app.predictor import estimate_emissions
 
 
 def simulate_ev_switch(df: pd.DataFrame, pct_switch: float) -> dict:
     """
     Simulate switching a percentage of Diesel fleet to EV.
-
-    Args:
-        df: Shipment DataFrame.
-        pct_switch: Percentage of Diesel shipments to switch (0-100).
-
-    Returns:
-        Dict with before_co2e, after_co2e, savings_co2e, savings_pct, label.
     """
     df_sim = df.copy()
     diesel_mask = df_sim["fuel_type"] == "Diesel"
@@ -22,15 +15,14 @@ def simulate_ev_switch(df: pd.DataFrame, pct_switch: float) -> dict:
     if n_switch > 0:
         switch_idx = df_sim[diesel_mask].sample(n=n_switch, random_state=42).index
         for idx in switch_idx:
-            vtype = df_sim.loc[idx, "vehicle_type"]
-            ef_ev = get_emission_factor("EV", vtype)
             df_sim.loc[idx, "fuel_type"] = "EV"
-            df_sim.loc[idx, "co2e_kg"] = round(
-                df_sim.loc[idx, "distance_km"]
-                * df_sim.loc[idx, "weight_tonnes"]
-                * ef_ev
-                * df_sim.loc[idx, "load_factor"],
-                2,
+            df_sim.loc[idx, "co2e_kg"] = estimate_emissions(
+                df_sim.loc[idx, "distance_km"],
+                df_sim.loc[idx, "weight_tonnes"],
+                "EV",
+                df_sim.loc[idx, "vehicle_type"],
+                df_sim.loc[idx, "load_factor"],
+                carrier_name=df_sim.loc[idx, "carrier_name"] if "carrier_name" in df_sim.columns else ""
             )
 
     before = round(df["co2e_kg"].sum(), 2)
@@ -58,15 +50,14 @@ def simulate_cng_switch(df: pd.DataFrame, pct_switch: float) -> dict:
     if n_switch > 0:
         switch_idx = df_sim[diesel_mask].sample(n=n_switch, random_state=42).index
         for idx in switch_idx:
-            vtype = df_sim.loc[idx, "vehicle_type"]
-            ef_cng = get_emission_factor("CNG", vtype)
             df_sim.loc[idx, "fuel_type"] = "CNG"
-            df_sim.loc[idx, "co2e_kg"] = round(
-                df_sim.loc[idx, "distance_km"]
-                * df_sim.loc[idx, "weight_tonnes"]
-                * ef_cng
-                * df_sim.loc[idx, "load_factor"],
-                2,
+            df_sim.loc[idx, "co2e_kg"] = estimate_emissions(
+                df_sim.loc[idx, "distance_km"],
+                df_sim.loc[idx, "weight_tonnes"],
+                "CNG",
+                df_sim.loc[idx, "vehicle_type"],
+                df_sim.loc[idx, "load_factor"],
+                carrier_name=df_sim.loc[idx, "carrier_name"] if "carrier_name" in df_sim.columns else ""
             )
 
     before = round(df["co2e_kg"].sum(), 2)
@@ -86,20 +77,17 @@ def simulate_cng_switch(df: pd.DataFrame, pct_switch: float) -> dict:
 def simulate_load_improvement(df: pd.DataFrame, pct_improvement: float) -> dict:
     """
     Simulate improving load factor across the fleet.
-
-    Args:
-        pct_improvement: Percentage points to add to load factor (0-30).
     """
     df_sim = df.copy()
     improvement = pct_improvement / 100
     df_sim["load_factor"] = (df_sim["load_factor"] + improvement).clip(upper=1.0)
 
-    # Recalculate CO₂e
     df_sim["co2e_kg"] = df_sim.apply(
-        lambda r: round(
-            r["distance_km"] * r["weight_tonnes"]
-            * get_emission_factor(r["fuel_type"], r["vehicle_type"])
-            * r["load_factor"], 2
+        lambda r: estimate_emissions(
+            r["distance_km"], r["weight_tonnes"],
+            r["fuel_type"], r["vehicle_type"],
+            r["load_factor"],
+            carrier_name=r.get("carrier_name", "")
         ),
         axis=1,
     )
@@ -121,20 +109,17 @@ def simulate_load_improvement(df: pd.DataFrame, pct_improvement: float) -> dict:
 def simulate_rerouting(df: pd.DataFrame, pct_reduction: float) -> dict:
     """
     Simulate rerouting to shorter distances.
-
-    Args:
-        pct_reduction: Percentage reduction in distance (0-30).
     """
     df_sim = df.copy()
     factor = 1 - pct_reduction / 100
     df_sim["distance_km"] = (df_sim["distance_km"] * factor).round(1)
 
-    # Recalculate CO₂e
     df_sim["co2e_kg"] = df_sim.apply(
-        lambda r: round(
-            r["distance_km"] * r["weight_tonnes"]
-            * get_emission_factor(r["fuel_type"], r["vehicle_type"])
-            * r["load_factor"], 2
+        lambda r: estimate_emissions(
+            r["distance_km"], r["weight_tonnes"],
+            r["fuel_type"], r["vehicle_type"],
+            r["load_factor"],
+            carrier_name=r.get("carrier_name", "")
         ),
         axis=1,
     )
@@ -162,8 +147,6 @@ def run_combined_scenario(
 ) -> dict:
     """
     Run all levers combined and return individual + total savings.
-
-    Returns dict with 'levers' (list of individual results) and 'total'.
     """
     levers = []
     before = round(df["co2e_kg"].sum(), 2)
@@ -177,10 +160,9 @@ def run_combined_scenario(
     if rerouting_pct > 0:
         levers.append(simulate_rerouting(df, rerouting_pct))
 
-    # Combined effect (apply all levers sequentially)
     df_combined = df.copy()
 
-    # EV switch
+    # Apply switches
     if ev_pct > 0:
         diesel_mask = df_combined["fuel_type"] == "Diesel"
         n_switch = int(diesel_mask.sum() * ev_pct / 100)
@@ -188,7 +170,6 @@ def run_combined_scenario(
             switch_idx = df_combined[diesel_mask].sample(n=n_switch, random_state=42).index
             df_combined.loc[switch_idx, "fuel_type"] = "EV"
 
-    # CNG switch (from remaining Diesel)
     if cng_pct > 0:
         diesel_mask = df_combined["fuel_type"] == "Diesel"
         n_switch = int(diesel_mask.sum() * cng_pct / 100)
@@ -196,24 +177,18 @@ def run_combined_scenario(
             switch_idx = df_combined[diesel_mask].sample(n=n_switch, random_state=42).index
             df_combined.loc[switch_idx, "fuel_type"] = "CNG"
 
-    # Load improvement
     if load_improvement > 0:
-        df_combined["load_factor"] = (
-            df_combined["load_factor"] + load_improvement / 100
-        ).clip(upper=1.0)
+        df_combined["load_factor"] = (df_combined["load_factor"] + load_improvement / 100).clip(upper=1.0)
 
-    # Rerouting
     if rerouting_pct > 0:
-        df_combined["distance_km"] = (
-            df_combined["distance_km"] * (1 - rerouting_pct / 100)
-        ).round(1)
+        df_combined["distance_km"] = (df_combined["distance_km"] * (1 - rerouting_pct / 100)).round(1)
 
-    # Recalculate all CO₂e
     df_combined["co2e_kg"] = df_combined.apply(
-        lambda r: round(
-            r["distance_km"] * r["weight_tonnes"]
-            * get_emission_factor(r["fuel_type"], r["vehicle_type"])
-            * r["load_factor"], 2
+        lambda r: estimate_emissions(
+            r["distance_km"], r["weight_tonnes"],
+            r["fuel_type"], r["vehicle_type"],
+            r["load_factor"],
+            carrier_name=r.get("carrier_name", "")
         ),
         axis=1,
     )

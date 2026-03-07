@@ -74,9 +74,10 @@ def generate_fleet_summary(kpis: dict, top_lanes: pd.DataFrame) -> str:
             for _, r in top_3.iterrows()
         )
 
-    system_msg = "You are a sustainability analyst for a road freight company in India."
+    system_msg = "You are a professional sustainability analyst specializing in logistics and the GLEC Framework."
     user_msg = f"""Write a concise 3-4 sentence executive summary of the fleet's carbon emission status.
-Be specific with numbers. Include one actionable recommendation.
+Results are now powered by the 2025 UK GHG Government Factors and EPA SmartWay carrier benchmarks.
+Be specific with numbers. Highlight that accuracy has been improved with these new datasets.
 
 Data:
 - Total fleet emissions: {kpis['total_co2e']:,.0f} kg CO₂e

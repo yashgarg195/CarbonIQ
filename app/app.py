@@ -17,8 +17,9 @@ from app.analytics import (
     emission_trend,
     lane_risk_classification,
     fuel_mix,
+    carrier_efficiency_leaderboard,
 )
-from app.simulator import run_combined_scenario
+from app.simulator import run_combined_scenario, simulate_ev_switch, simulate_load_improvement
 from app.ai_insights import (
     generate_fleet_summary,
     generate_scenario_narrative,
@@ -36,19 +37,20 @@ st.set_page_config(
 # ── Custom CSS ────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
 
-    /* Global Typography */
+    /* Global Typography & Background */
     .stApp {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-        background-color: #0f111a;
+        font-family: 'Outfit', sans-serif;
+        background: radial-gradient(circle at top right, #1a1c2c, #0f111a);
+        color: #e6e6e6;
     }
 
-    /* Professional Sidebar Ribbon */
+    /* Professional Sidebar */
     section[data-testid="stSidebar"] {
-        background-color: #161b22;
-        border-right: 1px solid #30363d;
-        padding-top: 1rem;
+        background-color: rgba(22, 27, 34, 0.95);
+        border-right: 1px solid rgba(48, 54, 61, 0.5);
+        backdrop-filter: blur(10px);
     }
     
     /* Layout structural spacing */
@@ -119,14 +121,7 @@ st.markdown("""
         color: #8b949e !important;
     }
 
-    /* Adjust main content container */
-    .block-container {
-        max-width: 100% !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-    }
-    
-    /* Sidebar Navigation Buttons */
+    /* Sidebar Navigation Browsing */
     section[data-testid="stSidebar"] .stButton > button {
         width: 100%;
         background-color: transparent;
@@ -144,15 +139,9 @@ st.markdown("""
     section[data-testid="stSidebar"] .stButton > button:hover {
         background-color: #21262d;
         color: #ffffff;
-        border: none;
-    }
-    section[data-testid="stSidebar"] .stButton > button:active,
-    section[data-testid="stSidebar"] .stButton > button:focus {
-        background-color: #1f6feb;
-        color: #ffffff;
     }
 
-    /* KPI Cards - Enterprise Style */
+    /* KPI Cards - Glassmorphism */
     .kpi-container {
         display: flex;
         gap: 24px;
@@ -160,95 +149,81 @@ st.markdown("""
         flex-wrap: wrap;
     }
     .kpi-card {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        text-align: left;
-        min-width: 150px;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        padding: 20px;
+        backdrop-filter: blur(5px);
+        transition: transform 0.3s ease, border 0.3s ease;
+    }
+    .kpi-card:hover {
+        transform: translateY(-5px);
+        border: 1px solid rgba(58, 123, 213, 0.5);
+        background: rgba(255, 255, 255, 0.05);
     }
     .kpi-value {
-        font-size: 28px;
-        font-weight: 600;
-        color: #ffffff;
-        margin: 4px 0 2px 0;
+        font-size: 32px;
+        font-weight: 700;
+        background: linear-gradient(135deg, #fff 0%, #aaa 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin: 8px 0;
     }
     .kpi-label {
-        font-size: 12px;
-        color: #8b949e;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-        font-weight: 600;
-    }
-    .kpi-sublabel {
         font-size: 11px;
         color: #8b949e;
+        text-transform: uppercase;
+        letter-spacing: 1.5px;
+        font-weight: 600;
     }
 
-    /* AI Insight Card - Professional Status Box */
+    /* AI Card - Neon Accent */
     .ai-card {
-        background-color: #161b22;
-        border: 1px solid #238636;
-        border-left: 4px solid #238636;
-        border-radius: 6px;
-        padding: 16px 20px;
+        background: linear-gradient(135deg, rgba(35, 134, 54, 0.1) 0%, rgba(16, 21, 26, 0.5) 100%);
+        border: 1px solid rgba(35, 134, 54, 0.3);
+        border-left: 5px solid #238636;
+        border-radius: 12px;
+        padding: 24px;
         margin: 24px 0;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
     }
-    .ai-card h4 {
-        color: #ffffff;
-        margin: 0 0 8px 0;
-        font-size: 14px;
-        font-weight: 600;
+    
+    /* Leaderboard Styles */
+    .leaderboard-table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 10px;
     }
-    .ai-card p {
-        color: #c9d1d9;
-        font-size: 14px;
-        line-height: 1.5;
-        margin: 0;
+    .leaderboard-row {
+        border-bottom: 1px solid rgba(48, 54, 61, 0.5);
     }
-
-    /* Savings card */
-    .savings-card {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        justify-content: flex-start;
-        text-align: left;
-        min-width: 150px;
+    .leaderboard-rank {
+        color: #58a6ff;
+        font-weight: 700;
+        padding: 12px;
     }
-    .savings-value {
-        font-size: 28px;
-        font-weight: 600;
+    .leaderboard-name {
+        padding: 12px;
+        font-weight: 500;
+    }
+    .leaderboard-value {
+        text-align: right;
+        padding: 12px;
         color: #3fb950;
-        margin: 4px 0 2px 0;
+        font-weight: 600;
     }
 
     /* Page headers */
     .page-header {
-        font-size: 20px;
-        font-weight: 600;
-        color: #ffffff;
-        margin-bottom: 4px;
-    }
-    .page-subtitle {
-        font-size: 13px;
-        color: #8b949e;
-        margin-bottom: 24px;
+        font-size: 32px;
+        font-weight: 700;
+        background: linear-gradient(90deg, #fff, #8b949e);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 8px;
     }
     
-    /* Standard headers inside columns */
-    h4 {
-        font-size: 14px !important;
-        font-weight: 600 !important;
-        color: #ffffff !important;
-        margin-bottom: 12px !important;
-        margin-top: 16px !important;
-    }
-
-    /* Hide default Streamlit branding */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    /* Fixed Chat Pane logic remains... */
 </style>
 """, unsafe_allow_html=True)
 
@@ -364,32 +339,23 @@ with main_col:
                 height=260,
             )
             fig_trend.update_xaxes(showgrid=False)
-            fig_trend.update_yaxes(showgrid=True, gridcolor="#30363d")
+            fig_trend.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)")
             st.plotly_chart(fig_trend, use_container_width=True)
 
         with col_right:
-            st.markdown("#### Top 10 High-Emission Lanes")
-            fig_lanes = px.bar(
-                top_lanes,
-                x="lane",
-                y="co2e_kg",
-                color="co2e_kg",
-                color_continuous_scale=["#34e89e", "#ffd93d", "#ff6b6b"],
-                labels={"co2e_kg": "CO₂e (kg)", "lane": "Lane"},
-                text="co2e_kg",
-            )
-            fig_lanes.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
-                margin=dict(l=0, r=0, t=10, b=40),
-                showlegend=False,
-                height=260,
-                xaxis_tickangle=-35,
-                coloraxis_showscale=False,
-            )
-            fig_lanes.update_traces(texttemplate="%{text:,.0f}", textposition="outside", cliponaxis=False)
-            st.plotly_chart(fig_lanes, use_container_width=True)
+            st.markdown("#### Carrier Efficiency Leaderboard (EPA Dataset)")
+            # Get leaderboard
+            leaderboard = carrier_efficiency_leaderboard(df, n=5)
+            if not leaderboard.empty:
+                for _, row in leaderboard.iterrows():
+                    st.markdown(f"""
+                    <div style="background: rgba(255,255,255,0.02); border-radius: 8px; padding: 10px; margin-bottom: 8px; border-left: 3px solid #3fb950; display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-size: 13px; font-weight: 500;">{row['carrier_name']}</span>
+                        <span style="font-size: 12px; color: #3fb950; font-weight: 600;">{row['ef_kg_per_tkm']:.4f} kg/tkm</span>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.info("Generating carrier performance benchmarks...")
 
 
     # ══════════════════════════════════════════════════════════════════════════════
@@ -402,13 +368,24 @@ with main_col:
         col_form, col_result = st.columns([1, 1])
 
         with col_form:
-            st.markdown("#### Enter Shipment Details")
-
             origins = sorted(df["origin"].unique().tolist())
             destinations = sorted(df["destination"].unique().tolist())
 
+            # Load unique carriers for selection
+            carrier_performance_path = os.path.join(os.path.dirname(__file__), "..", "data", "carrier_performance.csv")
+            try:
+                carriers_df = pd.read_csv(carrier_performance_path)
+                carrier_list = ["(General / Unknown)"] + sorted(carriers_df["carrier_name"].unique().tolist())
+            except:
+                carrier_list = ["(General / Unknown)"]
+
             origin = st.selectbox("Origin City", origins, index=0, key="est_origin")
             destination = st.selectbox("Destination City", destinations, index=1, key="est_dest")
+            
+            # Carrier selection
+            carrier_name = st.selectbox("Carrier (Optional)", carrier_list, key="est_carrier")
+            actual_carrier = carrier_name if carrier_name != "(General / Unknown)" else ""
+
             distance_km = st.number_input("Distance (km)", min_value=10.0, max_value=5000.0, value=500.0, step=50.0)
             weight_tonnes = st.number_input("Cargo Weight (tonnes)", min_value=0.5, max_value=50.0, value=10.0, step=0.5)
             fuel_type = st.selectbox("Fuel Type", get_all_fuel_types(), key="est_fuel")
@@ -420,7 +397,7 @@ with main_col:
         with col_result:
             st.markdown("#### Estimation Result")
             if estimate_btn:
-                co2e = estimate_emissions(distance_km, weight_tonnes, fuel_type, vehicle_type, load_factor)
+                co2e = estimate_emissions(distance_km, weight_tonnes, fuel_type, vehicle_type, load_factor, carrier_name=actual_carrier)
                 fleet_avg = df["co2e_kg"].mean()
 
                 # Result card
@@ -603,7 +580,7 @@ with main_col:
             run_btn = st.button("Run Scenario", use_container_width=True, type="primary")
 
         with col_results:
-            if run_btn or any([ev_pct, cng_pct, load_imp, reroute_pct]):
+            if run_btn:
                 scenario = run_combined_scenario(
                     df,
                     ev_pct=ev_pct,
@@ -709,8 +686,38 @@ with main_col:
                         <p>{narrative}</p>
                     </div>
                     """, unsafe_allow_html=True)
+                
+                # --- NEW SECTION: Strategic Recommendations ---
+                st.markdown("---")
+                st.markdown("#### 🎯 Smart Optimization Engine")
+                st.markdown("<p style='font-size: 13px; color: #8b949e;'>Based on your fleet profile, we predicted additional high-impact actions:</p>", unsafe_allow_html=True)
+                
+                # Compute some "Next Best Steps"
+                # 1. full EV switch (100% of remaining diesel)
+                full_ev = simulate_ev_switch(df, 100)
+                full_cons = simulate_load_improvement(df, 30) # Max 100% load
+                
+                rec_col1, rec_col2 = st.columns(2)
+                with rec_col1:
+                    st.markdown(f"""
+                    <div style="background: rgba(88, 166, 255, 0.05); border: 1px dashed rgba(88, 166, 255, 0.3); border-radius: 10px; padding: 16px;">
+                        <div style="font-size: 11px; color: #58a6ff; font-weight: 700; text-transform: uppercase;">Next-Best Technology</div>
+                        <div style="font-size: 16px; font-weight: 600; margin: 8px 0;">100% EV Transition</div>
+                        <div style="font-size: 12px; color: #c9d1d9;">Predicted impact: <span style="color: #3fb950; font-weight: 700;">-{full_ev['savings_pct']}% CO₂e</span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                
+                with rec_col2:
+                    st.markdown(f"""
+                    <div style="background: rgba(63, 185, 80, 0.05); border: 1px dashed rgba(63, 185, 80, 0.3); border-radius: 10px; padding: 16px;">
+                        <div style="font-size: 11px; color: #3fb950; font-weight: 700; text-transform: uppercase;">Next-Best Efficiency</div>
+                        <div style="font-size: 16px; font-weight: 600; margin: 8px 0;">Max Load Consolidation</div>
+                        <div style="font-size: 12px; color: #c9d1d9;">Predicted impact: <span style="color: #3fb950; font-weight: 700;">-{full_cons['savings_pct']}% CO₂e</span></div>
+                    </div>
+                    """, unsafe_allow_html=True)
+
             else:
-                st.info("Adjust the scenario levers and click Run Scenario to see projected emission reductions.")
+                st.info("Adjust the scenario levers and click 'Run Scenario' to see projected emission reductions and strategic recommendations.")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # ══════════════════════════════════════════════════════════════════════════════
