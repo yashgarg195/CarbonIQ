@@ -60,22 +60,51 @@ st.markdown("""
         max-width: 100% !important;
     }
 
-    /* AI Chat Panel Styling */
-    .ai-chat-container {
-        height: calc(100vh - 120px);
-        display: flex;
-        flex-direction: column;
-        border-left: 1px solid #30363d;
-        padding-left: 24px;
+    /* Fixed Right AI Console Pane */
+    /* Updated selector: Use nth-child(2) to target the second column in the horizontal alignment block */
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(2) {
+        position: fixed !important;
+        right: 0 !important;
+        top: 0 !important;
+        width: 350px !important;
+        height: 100vh !important;
+        background-color: #161b22 !important;
+        border-left: 1px solid #30363d !important;
+        padding: 60px 24px 80px 24px !important;
+        z-index: 100 !important;
+        overflow-y: auto !important;
+        display: block !important;
     }
-    .ai-header {
-        font-size: 16px;
-        font-weight: 600;
-        color: #ffffff;
-        margin-bottom: 16px;
-        display: flex;
-        align-items: center;
-        gap: 8px;
+
+    /* Push main content to the left to make room for fixed AI panel */
+    section[data-testid="stMain"] {
+        margin-right: 350px !important;
+        width: calc(100% - 350px) !important;
+    }
+
+    /* Fixed Chat Input aligned with fixed AI panel */
+    div[data-testid="stChatInput"] {
+        position: fixed !important;
+        bottom: 0 !important;
+        right: 0 !important;
+        width: 350px !important;
+        background-color: #161b22 !important;
+        border-top: 1px solid #30363d !important;
+        padding: 10px 20px 20px 20px !important;
+        z-index: 101 !important;
+        left: auto !important;
+    }
+
+    /* AI Header styling to prevent vertical text */
+    .ai-console-header h3 {
+        white-space: nowrap !important;
+    }
+
+    /* Adjust main content container */
+    .block-container {
+        max-width: 100% !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
     }
     
     /* Sidebar Navigation Buttons */
@@ -105,18 +134,24 @@ st.markdown("""
     }
 
     /* KPI Cards - Enterprise Style */
+    .kpi-container {
+        display: flex;
+        gap: 24px;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
     .kpi-card {
-        background-color: #161b22;
-        border: 1px solid #30363d;
-        border-radius: 6px;
-        padding: 16px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
         text-align: left;
-        height: 100%;
+        min-width: 150px;
     }
     .kpi-value {
-        font-size: 24px;
+        font-size: 28px;
         font-weight: 600;
-        color: #58a6ff;
+        color: #ffffff;
         margin: 4px 0 2px 0;
     }
     .kpi-label {
@@ -155,15 +190,15 @@ st.markdown("""
 
     /* Savings card */
     .savings-card {
-        background-color: #161b22;
-        border: 1px solid #238636;
-        border-radius: 6px;
-        padding: 16px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
         text-align: left;
-        height: 100%;
+        min-width: 150px;
     }
     .savings-value {
-        font-size: 24px;
+        font-size: 28px;
         font-weight: 600;
         color: #3fb950;
         margin: 4px 0 2px 0;
@@ -236,7 +271,7 @@ with st.sidebar:
 page = st.session_state.current_page
 
 # ── Main 3:1 Layout Grid ──────────────────────────────────────────────────────
-main_col, divider_col, ai_col = st.columns([7.5, 0.5, 3])
+main_col, ai_col = st.columns([7, 3], gap="small")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1: Overview Dashboard
@@ -250,41 +285,30 @@ with main_col:
         top_lanes = top_emission_lanes(df, n=10)
 
         # KPI Cards
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            st.markdown(f"""
+        st.markdown(f"""
+        <div class="kpi-container">
             <div class="kpi-card">
                 <div class="kpi-label">Total CO₂e</div>
                 <div class="kpi-value">{kpis['total_co2e']:,.0f} kg</div>
-                <div class="kpi-sublabel">{kpis['total_co2e']/1000:,.1f} tonnes</div>
+                <div class="kpi-sublabel" style="color: #3fb950;">{kpis['total_co2e']/1000:,.1f} tonnes</div>
             </div>
-            """, unsafe_allow_html=True)
-        with c2:
-            st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Shipments</div>
                 <div class="kpi-value">{kpis['shipment_count']}</div>
                 <div class="kpi-sublabel">Tracked this period</div>
             </div>
-            """, unsafe_allow_html=True)
-        with c3:
-            st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Avg / Shipment</div>
                 <div class="kpi-value">{kpis['avg_per_shipment']:,.1f} kg</div>
                 <div class="kpi-sublabel">CO₂e per shipment</div>
             </div>
-            """, unsafe_allow_html=True)
-        with c4:
-            st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Diesel Share</div>
                 <div class="kpi-value">{kpis['diesel_share']}%</div>
                 <div class="kpi-sublabel">of total fleet</div>
             </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("")
+        </div>
+        """, unsafe_allow_html=True)
 
         # AI Summary
         if ai_is_available():
@@ -374,11 +398,10 @@ with main_col:
             estimate_btn = st.button("Estimate Emissions", use_container_width=True, type="primary")
 
         with col_result:
+            st.markdown("#### Estimation Result")
             if estimate_btn:
                 co2e = estimate_emissions(distance_km, weight_tonnes, fuel_type, vehicle_type, load_factor)
                 fleet_avg = df["co2e_kg"].mean()
-
-                st.markdown("#### Estimation Result")
 
                 # Result card
                 st.markdown(f"""
@@ -430,7 +453,6 @@ with main_col:
                 )
                 st.plotly_chart(fig_gauge, use_container_width=True)
             else:
-                st.markdown("")
                 st.info("Fill in the shipment details and click Estimate Emissions to see the result.")
 
 
@@ -449,32 +471,25 @@ with main_col:
         med_count = len(lane_df[lane_df["risk"] == "Medium"])
         low_count = len(lane_df[lane_df["risk"] == "Low"])
 
-        with c1:
-            st.markdown(f"""
+        st.markdown(f"""
+        <div class="kpi-container">
             <div class="kpi-card">
                 <div class="kpi-label">High Risk Lanes</div>
                 <div class="kpi-value" style="background: linear-gradient(90deg, #ff6b6b, #ee5a24); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{high_count}</div>
                 <div class="kpi-sublabel">Immediate attention needed</div>
             </div>
-            """, unsafe_allow_html=True)
-        with c2:
-            st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Medium Risk Lanes</div>
                 <div class="kpi-value" style="background: linear-gradient(90deg, #ffd93d, #f0932b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{med_count}</div>
                 <div class="kpi-sublabel">Monitor & optimize</div>
             </div>
-            """, unsafe_allow_html=True)
-        with c3:
-            st.markdown(f"""
             <div class="kpi-card">
                 <div class="kpi-label">Low Risk Lanes</div>
                 <div class="kpi-value" style="background: linear-gradient(90deg, #34e89e, #0f9b0f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{low_count}</div>
                 <div class="kpi-sublabel">Performing well</div>
             </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("")
+        </div>
+        """, unsafe_allow_html=True)
 
         col_left, col_right = st.columns([6, 4], gap="large")
 
@@ -579,33 +594,25 @@ with main_col:
                 total = scenario["total"]
 
                 # Summary cards
-                sc1, sc2, sc3 = st.columns(3)
-                with sc1:
-                    st.markdown(f"""
+                st.markdown(f"""
+                <div class="kpi-container">
                     <div class="kpi-card">
                         <div class="kpi-label">Baseline Emissions</div>
                         <div class="kpi-value">{total['before_co2e']:,.0f} kg</div>
                         <div class="kpi-sublabel">Current fleet total</div>
                     </div>
-                    """, unsafe_allow_html=True)
-                with sc2:
-                    st.markdown(f"""
                     <div class="kpi-card">
                         <div class="kpi-label">Projected Emissions</div>
                         <div class="kpi-value" style="background: linear-gradient(90deg, #34e89e, #0f9b0f); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">{total['after_co2e']:,.0f} kg</div>
                         <div class="kpi-sublabel">After scenario changes</div>
                     </div>
-                    """, unsafe_allow_html=True)
-                with sc3:
-                    st.markdown(f"""
                     <div class="savings-card">
                         <div class="kpi-label" style="color: #34e89e;">Total Reduction</div>
                         <div class="savings-value">-{total['savings_pct']}%</div>
                         <div class="kpi-sublabel" style="color: #8892b0;">{total['savings_co2e']:,.0f} kg CO₂e saved</div>
                     </div>
-                    """, unsafe_allow_html=True)
-
-                st.markdown("")
+                </div>
+                """, unsafe_allow_html=True)
 
                 # Waterfall chart
                 if scenario["levers"]:
@@ -684,3 +691,36 @@ with main_col:
                     """, unsafe_allow_html=True)
             else:
                 st.info("Adjust the scenario levers and click Run Scenario to see projected emission reductions.")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# ══════════════════════════════════════════════════════════════════════════════
+# AI ASSISTANT PANEL (RIGHT COLUMN)
+# ══════════════════════════════════════════════════════════════════════════════
+with ai_col:
+    st.markdown("""
+    <div class="ai-console-header" style="padding-bottom: 10px; border-bottom: 1px solid #30363d; margin-bottom: 16px;">
+        <h3 style="margin:0; font-size:16px; font-weight:600; color:#58a6ff;">🤖 CarbonIQ Assistant</h3>
+        <p style="margin:0; font-size:12px; color:#8b949e;">Powered by HuggingFace Qwen</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # History container - we use st.container with height to allow internal scrolling 
+    # while the column itself stays sticky to the viewport.
+    chat_container = st.container(height=600, border=False)
+
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+    # Fixed Chat input handled by CSS (pinned to bottom-right)
+    if not ai_is_available():
+        st.warning("[Notice] AI Assistant disabled.")
+    else:
+        if prompt := st.chat_input("Ask CarbonIQ..."):
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            response = ask_carbon_agent(f"{prompt}", df)
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.rerun()
