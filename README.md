@@ -6,28 +6,28 @@ Built with **Streamlit**, **Plotly**, **Pandas**, and the **Hugging Face Inferen
 
 ---
 
-## ✨ Key Features
+##  Key Features
 
-### 📊 Fleet Emissions Overview
+###  Fleet Emissions Overview
 - Real-time KPI cards: Total CO₂e, Shipments, Avg/Shipment, Diesel Share, **Avg Fleet Age**
 - AI-Generated Sustainability Intelligence (powered by Qwen 72B)
 - Monthly emission trend chart (by fuel type)
 - EPA SmartWay carrier efficiency leaderboard
 
-### 🚛 Shipment Estimator
+###  Shipment Estimator
 - Estimate CO₂e for any single shipment using the **GLEC Framework**
 - Inputs: Origin, Destination, Carrier, Distance, Weight, Fuel Type, Vehicle Type, Load Factor, **Vehicle Age**
 - Formula breakdown showing all factors including the **Age Multiplier**
 - Visual gauge comparing estimate vs. fleet average
 
-### 🗺️ Lane Analytics
+###  Lane Analytics
 - Automatic lane risk classification (High / Medium / Low)
 - Emission intensity vs. volume scatter plot
 - Risk distribution pie chart
 - **Vehicle Age Distribution** histogram
 - Detailed lane data table
 
-### 🧪 What-If Simulator
+###  What-If Simulator
 - Model 4 emission reduction levers simultaneously:
   - Diesel → EV switch
   - Diesel → CNG switch
@@ -37,14 +37,14 @@ Built with **Streamlit**, **Plotly**, **Pandas**, and the **Hugging Face Inferen
 - Before vs. After comparison chart
 - AI-generated scenario narrative
 
-### 🤖 CarbonIQ AI Assistant
+###  CarbonIQ AI Assistant
 - Persistent chat sidebar powered by Hugging Face
 - Context-aware — knows your fleet's emissions, fuel mix, routes, and **vehicle age profile**
 - Ask natural language questions like *"What is the average age of our fleet?"*
 
 ---
 
-## 🔬 Vehicle Age Factor
+##  Vehicle Age Factor
 
 CarbonIQ accounts for **vehicle age degradation** in emission calculations:
 
@@ -57,7 +57,7 @@ CarbonIQ accounts for **vehicle age degradation** in emission calculations:
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 CarbonIQ/
@@ -78,7 +78,7 @@ CarbonIQ/
 
 ---
 
-## 🚀 Getting Started
+##  Getting Started
 
 ### Prerequisites
 - Python 3.9+
@@ -111,7 +111,7 @@ The app will open at `http://localhost:8501`.
 
 ---
 
-## 📊 Data Sources
+##  Data Sources
 
 | Dataset | Source | Purpose |
 |---------|--------|---------|
@@ -121,7 +121,7 @@ The app will open at `http://localhost:8501`.
 
 ---
 
-## 🛠️ Tech Stack
+##  Tech Stack
 
 - **Frontend:** Streamlit + Plotly (dark glassmorphic theme)
 - **Data:** Pandas, NumPy
@@ -130,7 +130,7 @@ The app will open at `http://localhost:8501`.
 
 ---
 
-## 📝 License
+##  License
 
 This project is for educational and research purposes.
 
