@@ -603,6 +603,7 @@ with main_col:
             fuel_type = st.selectbox("Fuel Type", get_all_fuel_types(), key="est_fuel")
             vehicle_type = st.selectbox("Vehicle Type", get_all_vehicle_types(), key="est_vehicle")
             load_factor = st.slider("Load Factor", min_value=0.1, max_value=1.0, value=0.8, step=0.05)
+            vehicle_age = st.number_input("Vehicle Age (Years)", min_value=1, max_value=20, value=5, step=1, key="est_age")
 
             estimate_btn = st.button("Estimate Emissions", width='stretch', type="primary")
 
