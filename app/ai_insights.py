@@ -84,11 +84,11 @@ Data:
 - Total shipments: {kpis['shipment_count']}
 - Average per shipment: {kpis['avg_per_shipment']:,.1f} kg CO₂e
 - Diesel share: {kpis['diesel_share']}%
-- Highest emission lane: {kpis['worst_lane']}
+- Average fleet age: {kpis['avg_fleet_age']} years
 - Top emission lanes:
 {top_lanes_str}
 
-Write the summary in a professional but accessible tone. No bullet points, just flowing prose."""
+Write the summary in a professional but accessible tone. Mention how fleet age affects overall efficiency. No bullet points, just flowing prose."""
 
     try:
         result = _generate(system_msg, user_msg)
@@ -106,9 +106,10 @@ def _fallback_fleet_summary(kpis: dict, top_lanes: pd.DataFrame) -> str:
         f"Your fleet generated **{kpis['total_co2e']:,.0f} kg CO₂e** across "
         f"**{kpis['shipment_count']}** shipments (avg "
         f"**{kpis['avg_per_shipment']:,.1f} kg** per shipment). "
-        f"Diesel vehicles account for **{kpis['diesel_share']}%** of the fleet. "
+        f"Diesel vehicles account for **{kpis['diesel_share']}%** of the fleet "
+        f"with an average vehicle age of **{kpis.get('avg_fleet_age', 'N/A')} years**. "
         f"The highest-emission lane is **{kpis['worst_lane']}**. "
-        f"Consider transitioning diesel vehicles to EV or CNG to reduce emissions."
+        f"Consider transitioning diesel vehicles to EV or CNG and replacing older vehicles to reduce emissions."
     )
 
 
@@ -207,6 +208,7 @@ If the data doesn't contain enough information, say so honestly."""
 - Fuel breakdown: {fuel_breakdown}
 - Vehicle breakdown: {vehicle_breakdown}
 - Average load factor: {avg_load:.2f}
+- Average vehicle age: {df['vehicle_age'].mean():.1f} years
 - Top 5 emission routes:
 {routes_str}
 

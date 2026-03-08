@@ -34,6 +34,7 @@ def summary_kpis(df: pd.DataFrame) -> dict:
 
     diesel_count = len(df[df["fuel_type"] == "Diesel"])
     diesel_share = round(diesel_count / shipment_count * 100, 1) if shipment_count else 0
+    avg_fleet_age = round(df["vehicle_age"].mean(), 1) if "vehicle_age" in df.columns else 0
 
     return {
         "total_co2e": total_co2e,
@@ -42,6 +43,7 @@ def summary_kpis(df: pd.DataFrame) -> dict:
         "worst_lane": worst_lane,
         "best_lane": best_lane,
         "diesel_share": diesel_share,
+        "avg_fleet_age": avg_fleet_age,
     }
 
 
@@ -122,7 +124,6 @@ def lane_risk_classification(df: pd.DataFrame) -> pd.DataFrame:
         lambda x: "High" if x >= q66 else ("Medium" if x >= q33 else "Low")
     )
     return lanes.sort_values("intensity", ascending=False)
-
 
 
 @st.cache_data

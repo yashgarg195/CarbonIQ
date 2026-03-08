@@ -30,10 +30,11 @@ def estimate_emissions(
     fuel_type: str,
     vehicle_type: str,
     load_factor: float = 1.0,
-    carrier_name: str = ""
+    carrier_name: str = "",
+    vehicle_age: float = 0
 ) -> float:
     """
-    Estimate CO₂e emissions using the GLEC Framework formula.
+    Estimate CO₂e emissions using the GLEC Framework formula + Vehicle Age factor.
     Supports carrier-specific emission factors if carrier_name is provided.
     """
     # Priority: Carrier specific > Vehicle/Fuel specific > Default
@@ -44,7 +45,12 @@ def estimate_emissions(
     # Ensure ef is a float
     ef_val: float = float(ef) if ef is not None else _DEFAULT_EF
     
-    co2e = distance_km * weight_tonnes * ef_val * load_factor
+    # Vehicle Age Impact: +1.5% emissions per year after 5 years
+    age_multiplier = 1.0
+    if vehicle_age > 5:
+        age_multiplier = 1.0 + (vehicle_age - 5) * 0.015
+    
+    co2e = distance_km * weight_tonnes * ef_val * load_factor * age_multiplier
     return round(float(co2e), 2)
 
 
@@ -60,7 +66,8 @@ def predict_batch(df: pd.DataFrame) -> pd.DataFrame:
             r["distance_km"], r["weight_tonnes"],
             r["fuel_type"], r["vehicle_type"],
             r.get("load_factor", 1.0),
-            carrier_name=r.get("carrier_name")
+            carrier_name=r.get("carrier_name"),
+            vehicle_age=r.get("vehicle_age", 0)
         ),
         axis=1,
     )

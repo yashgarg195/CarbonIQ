@@ -13,7 +13,8 @@ def _recalc_emissions(df: pd.DataFrame) -> pd.DataFrame:
             r["distance_km"], r["weight_tonnes"],
             r["fuel_type"], r["vehicle_type"],
             r["load_factor"],
-            carrier_name=r.get("carrier_name", "")
+            carrier_name=r.get("carrier_name", ""),
+            vehicle_age=r.get("vehicle_age", 0)
         ),
         axis=1,
     )

@@ -19,19 +19,19 @@ from app.analytics import (
     lane_risk_classification,
     carrier_efficiency_leaderboard,
 )
-
-# ── Shared Plotly dark theme ──────────────────────────────────────────────────
-DARK_LAYOUT = dict(
-    template="plotly_dark",
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-)
 from app.simulator import run_combined_scenario, simulate_ev_switch, simulate_load_improvement
 from app.ai_insights import (
     generate_fleet_summary,
     generate_scenario_narrative,
     ask_carbon_agent,
     is_available as ai_is_available,
+)
+
+# ── Shared Plotly dark theme ──────────────────────────────────────────────────
+DARK_LAYOUT = dict(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
 )
 
 # ── Page Config ───────────────────────────────────────────────────────────────
@@ -510,6 +510,11 @@ with main_col:
                 <div class="kpi-value">{kpis['diesel_share']}%</div>
                 <div class="kpi-sublabel">of total fleet</div>
             </div>
+            <div class="kpi-card">
+                <div class="kpi-label">Avg Fleet Age</div>
+                <div class="kpi-value">{kpis['avg_fleet_age']}y</div>
+                <div class="kpi-sublabel">Years per vehicle</div>
+            </div>
         </div>
         """, unsafe_allow_html=True)
 
@@ -597,13 +602,14 @@ with main_col:
             fuel_type = st.selectbox("Fuel Type", get_all_fuel_types(), key="est_fuel")
             vehicle_type = st.selectbox("Vehicle Type", get_all_vehicle_types(), key="est_vehicle")
             load_factor = st.slider("Load Factor", min_value=0.1, max_value=1.0, value=0.8, step=0.05)
+            vehicle_age = st.slider("Vehicle Age (Years)", min_value=0, max_value=20, value=3, step=1)
 
             estimate_btn = st.button("Estimate Emissions", width='stretch', type="primary")
 
         with col_result:
             st.markdown("#### Estimation Result")
             if estimate_btn:
-                co2e = estimate_emissions(distance_km, weight_tonnes, fuel_type, vehicle_type, load_factor, carrier_name=actual_carrier)
+                co2e = estimate_emissions(distance_km, weight_tonnes, fuel_type, vehicle_type, load_factor, carrier_name=actual_carrier, vehicle_age=vehicle_age)
                 fleet_avg = df["co2e_kg"].mean()
 
                 # Result card
@@ -618,8 +624,9 @@ with main_col:
                 # Formula breakdown
                 ef = get_emission_factor(fuel_type, vehicle_type)
                 st.markdown("##### Formula Breakdown")
+                age_factor = 1.0 + (vehicle_age - 5) * 0.015 if vehicle_age > 5 else 1.0
                 st.code(
-                    f"CO₂e = {distance_km} km × {weight_tonnes} t × {ef} (EF) × {load_factor} (LF)\n"
+                    f"CO₂e = {distance_km} km × {weight_tonnes} t × {ef} (EF) × {load_factor} (LF) × {age_factor:.3f} (Age Factor)\n"
                     f"CO₂e = {co2e:,.2f} kg",
                     language="text",
                 )
@@ -736,6 +743,24 @@ with main_col:
             )
             fig_risk.update_traces(textposition="inside", textinfo="percent+label")
             st.plotly_chart(fig_risk, width='stretch')
+
+            st.markdown("#### Vehicle Age Distribution")
+            fig_age = px.histogram(
+                df,
+                x="vehicle_age",
+                nbins=10,
+                color_discrete_sequence=["#58a6ff"],
+                labels={"vehicle_age": "Vehicle Age (Years)", "count": "Shipments"},
+            )
+            fig_age.update_layout(
+                **DARK_LAYOUT,
+                height=250,
+                margin=dict(l=20, r=20, t=10, b=10),
+                showlegend=False,
+            )
+            fig_age.update_xaxes(showgrid=False)
+            fig_age.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)")
+            st.plotly_chart(fig_age, width='stretch')
 
         # Lane table
         st.markdown("#### Detailed Lane Data")
