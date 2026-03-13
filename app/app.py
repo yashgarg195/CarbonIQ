@@ -800,14 +800,14 @@ with main_col:
         fig_age.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)")
         st.plotly_chart(fig_age, width='stretch')
 
-            # Collapsible AI insight for vehicle age
-            with st.expander("🤖 AI Insight", expanded=False):
-                _avg_age = round(df['vehicle_age'].mean(), 1) if 'vehicle_age' in df.columns else 'N/A'
-                _va_ctx = f"Average fleet age: {_avg_age} years. Vehicles older than 5 years incur +1.5%/year emission penalty."
-                _va_cache_key = "insight_vehicle_age"
-                if _va_cache_key not in st.session_state:
-                    st.session_state[_va_cache_key] = generate_chart_insight("Vehicle Age Distribution", _va_ctx)
-                st.markdown(st.session_state[_va_cache_key])
+        # Collapsible AI insight for vehicle age
+        with st.expander("🤖 AI Insight", expanded=False):
+            _avg_age = round(df['vehicle_age'].mean(), 1) if 'vehicle_age' in df.columns else 'N/A'
+            _va_ctx = f"Average fleet age: {_avg_age} years. Vehicles older than 5 years incur +1.5%/year emission penalty."
+            _va_cache_key = "insight_vehicle_age"
+            if _va_cache_key not in st.session_state:
+                st.session_state[_va_cache_key] = generate_chart_insight("Vehicle Age Distribution", _va_ctx)
+            st.markdown(st.session_state[_va_cache_key])
 
         # Lane table
         st.markdown("#### Detailed Lane Data")
