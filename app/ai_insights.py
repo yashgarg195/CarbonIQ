@@ -221,3 +221,33 @@ User question: {question}"""
         return "[Error] Could not generate a response. Please try again."
     except Exception as e:
         return f"[Error] Error generating response: {e}"
+
+
+# ── Chart-Level AI Insights ──────────────────────────────────────────────────
+
+def generate_chart_insight(chart_name: str, data_context: str) -> str:
+    """
+    Generate a short 1-2 sentence AI insight for an individual chart.
+
+    Args:
+        chart_name: Human-readable chart title.
+        data_context: A short string summarizing the key data points.
+
+    Returns:
+        Brief AI-generated insight string.
+    """
+    system_msg = (
+        "You are CarbonIQ, a sustainability analytics assistant. "
+        "Write exactly 2 concise sentences interpreting the chart data. "
+        "Be specific with numbers. No bullet points."
+    )
+    user_msg = f"Chart: {chart_name}\nData: {data_context}\n\nProvide a brief analytical insight."
+
+    try:
+        result = _generate(system_msg, user_msg, max_tokens=150)
+        if result:
+            return result
+    except Exception as e:
+        print(f"[Error] Chart insight generation failed: {e}")
+
+    return f"This chart shows the distribution and trends for {chart_name.lower()}. Review the data points above for detailed analysis."

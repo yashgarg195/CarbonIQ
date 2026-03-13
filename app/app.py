@@ -20,19 +20,20 @@ from app.analytics import (
     lane_risk_classification,
     carrier_efficiency_leaderboard,
 )
+from app.simulator import run_combined_scenario, simulate_ev_switch, simulate_load_improvement
+from app.ai_insights import (
+    generate_fleet_summary,
+    generate_scenario_narrative,
+    generate_chart_insight,
+    ask_carbon_agent,
+    is_available as ai_is_available,
+)
 
 # ── Shared Plotly dark theme ──────────────────────────────────────────────────
 DARK_LAYOUT = dict(
     template="plotly_dark",
     paper_bgcolor="rgba(0,0,0,0)",
     plot_bgcolor="rgba(0,0,0,0)",
-)
-from app.simulator import run_combined_scenario, simulate_ev_switch, simulate_load_improvement
-from app.ai_insights import (
-    generate_fleet_summary,
-    generate_scenario_narrative,
-    ask_carbon_agent,
-    is_available as ai_is_available,
 )
 
 # ── Page Config ───────────────────────────────────────────────────────────────
@@ -519,10 +520,12 @@ with main_col:
         </div>
         """, unsafe_allow_html=True)
 
-        # AI Summary
+        # AI Summary — cached so it survives chat-triggered reruns
         if ai_is_available():
-            with st.spinner("Generating AI summary..."):
-                ai_summary = generate_fleet_summary(kpis, top_lanes)
+            if "overview_ai_summary" not in st.session_state:
+                with st.spinner("Generating AI summary..."):
+                    st.session_state["overview_ai_summary"] = generate_fleet_summary(kpis, top_lanes)
+            ai_summary = st.session_state["overview_ai_summary"]
             st.markdown(f"""
             <div class="ai-card">
                 <h4>AI-Generated Sustainability Intelligence</h4>
@@ -554,6 +557,14 @@ with main_col:
             fig_trend.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)")
             st.plotly_chart(fig_trend, width='stretch')
 
+            # Collapsible AI insight for emission trend
+            with st.expander("🤖 AI Insight", expanded=False):
+                _trend_ctx = f"Monthly CO₂e by fuel: Diesel={kpis['diesel_share']}% of fleet, total={kpis['total_co2e']:,.0f} kg across {kpis['shipment_count']} shipments."
+                _trend_cache_key = "insight_emission_trend"
+                if _trend_cache_key not in st.session_state:
+                    st.session_state[_trend_cache_key] = generate_chart_insight("Monthly Emission Trend", _trend_ctx)
+                st.markdown(st.session_state[_trend_cache_key])
+
         with col_right:
             st.markdown("#### Carrier Efficiency Leaderboard (EPA Dataset)")
             # Get leaderboard
@@ -566,6 +577,14 @@ with main_col:
                         <span style="font-size: 12px; color: #3fb950; font-weight: 600;">{row['ef_kg_per_tkm']:.4f} kg/tkm</span>
                     </div>
                     """, unsafe_allow_html=True)
+                # Collapsible AI insight for carrier leaderboard
+                with st.expander("🤖 AI Insight", expanded=False):
+                    _top_carrier = leaderboard.iloc[0]
+                    _lb_ctx = f"Top carrier: {_top_carrier['carrier_name']} at {_top_carrier['ef_kg_per_tkm']:.4f} kg/tkm. {len(leaderboard)} carriers shown."
+                    _lb_cache_key = "insight_carrier_leaderboard"
+                    if _lb_cache_key not in st.session_state:
+                        st.session_state[_lb_cache_key] = generate_chart_insight("Carrier Efficiency Leaderboard", _lb_ctx)
+                    st.markdown(st.session_state[_lb_cache_key])
             else:
                 st.info("Generating carrier performance benchmarks...")
 
@@ -724,6 +743,14 @@ with main_col:
             )
             st.plotly_chart(fig_scatter, width='stretch')
 
+            # Collapsible AI insight for lane intensity
+            with st.expander("🤖 AI Insight", expanded=False):
+                _li_ctx = f"Lanes: {high_count} high-risk, {med_count} medium, {low_count} low. Total lanes analyzed: {len(lane_df)}."
+                _li_cache_key = "insight_lane_intensity"
+                if _li_cache_key not in st.session_state:
+                    st.session_state[_li_cache_key] = generate_chart_insight("Lane Emission Intensity vs Volume", _li_ctx)
+                st.markdown(st.session_state[_li_cache_key])
+
         with col_right:
             st.markdown("#### Risk Distribution")
             risk_counts = lane_df["risk"].value_counts().reset_index()
@@ -743,6 +770,14 @@ with main_col:
             )
             fig_risk.update_traces(textposition="inside", textinfo="percent+label")
             st.plotly_chart(fig_risk, width='stretch')
+
+            # Collapsible AI insight for risk distribution
+            with st.expander("🤖 AI Insight", expanded=False):
+                _rd_ctx = f"Risk distribution: {high_count} High ({round(high_count/len(lane_df)*100)}%), {med_count} Medium ({round(med_count/len(lane_df)*100)}%), {low_count} Low ({round(low_count/len(lane_df)*100)}%)."
+                _rd_cache_key = "insight_risk_distribution"
+                if _rd_cache_key not in st.session_state:
+                    st.session_state[_rd_cache_key] = generate_chart_insight("Risk Distribution", _rd_ctx)
+                st.markdown(st.session_state[_rd_cache_key])
 
         # Vehicle Age Distribution
         st.markdown("#### Vehicle Age Distribution")
@@ -764,6 +799,15 @@ with main_col:
         fig_age.update_xaxes(showgrid=False)
         fig_age.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)")
         st.plotly_chart(fig_age, width='stretch')
+
+            # Collapsible AI insight for vehicle age
+            with st.expander("🤖 AI Insight", expanded=False):
+                _avg_age = round(df['vehicle_age'].mean(), 1) if 'vehicle_age' in df.columns else 'N/A'
+                _va_ctx = f"Average fleet age: {_avg_age} years. Vehicles older than 5 years incur +1.5%/year emission penalty."
+                _va_cache_key = "insight_vehicle_age"
+                if _va_cache_key not in st.session_state:
+                    st.session_state[_va_cache_key] = generate_chart_insight("Vehicle Age Distribution", _va_ctx)
+                st.markdown(st.session_state[_va_cache_key])
 
         # Lane table
         st.markdown("#### Detailed Lane Data")
@@ -880,6 +924,12 @@ with main_col:
                     )
                     st.plotly_chart(fig_waterfall, width='stretch')
 
+                    # Collapsible AI insight for savings breakdown
+                    with st.expander("🤖 AI Insight", expanded=False):
+                        _lever_parts = [f"{l['label']}: {l['savings_co2e']:,.0f} kg ({l['savings_pct']}%)" for l in scenario['levers']]
+                        _sw_ctx = f"Savings by lever: {', '.join(_lever_parts)}. Combined: {total['savings_co2e']:,.0f} kg ({total['savings_pct']}%)."
+                        st.markdown(generate_chart_insight("Savings Breakdown by Lever", _sw_ctx))
+
                 # Before vs After comparison
                 st.markdown("#### Before vs After")
                 fig_compare = go.Figure()
@@ -899,6 +949,11 @@ with main_col:
                     yaxis_title="Total CO₂e (kg)",
                 )
                 st.plotly_chart(fig_compare, width='stretch')
+
+                # Collapsible AI insight for before vs after
+                with st.expander("🤖 AI Insight", expanded=False):
+                    _bva_ctx = f"Before: {total['before_co2e']:,.0f} kg → After: {total['after_co2e']:,.0f} kg. Reduction: {total['savings_co2e']:,.0f} kg ({total['savings_pct']}%)."
+                    st.markdown(generate_chart_insight("Before vs After Comparison", _bva_ctx))
 
                 # AI Narrative
                 if ai_is_available():

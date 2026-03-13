@@ -39,7 +39,13 @@ def estimate_emissions(
     """
     # Priority: Carrier specific > Vehicle/Fuel specific > Default
     ef = _CARRIER_LOOKUP.get(carrier_name) if carrier_name else None
-    if ef is None:
+    if ef is not None and fuel_type != "Diesel":
+        # Carrier EFs are Diesel-baseline; scale by the fuel-type ratio so
+        # switching to EV / CNG actually reduces emissions proportionally.
+        diesel_ef = _EF_LOOKUP.get(("Diesel", vehicle_type), _DEFAULT_EF)
+        target_ef = _EF_LOOKUP.get((fuel_type, vehicle_type), diesel_ef)
+        ef = ef * (target_ef / diesel_ef) if diesel_ef > 0 else ef
+    elif ef is None:
         ef = _EF_LOOKUP.get((fuel_type, vehicle_type), _DEFAULT_EF)
     
     # Ensure ef is a float
