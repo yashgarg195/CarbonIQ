@@ -1,5 +1,5 @@
 # 🌍 CarbonIQ — Carbon Intelligence for Road Freight
-
+link: https://carbon-iq.streamlit.app
 CarbonIQ is an enterprise-grade **Carbon Intelligence Dashboard** for road freight logistics. It provides real-time emissions monitoring, shipment-level estimation, lane analytics, and what-if scenario modeling — all powered by a persistent AI Assistant.
 
 Built with **Streamlit**, **Plotly**, **Pandas**, and the **Hugging Face Inference API**.
