@@ -558,7 +558,7 @@ with main_col:
             st.plotly_chart(fig_trend, width='stretch')
 
             # Collapsible AI insight for emission trend
-            with st.expander("🤖 AI Insight", expanded=False):
+            with st.expander("AI Insight", expanded=False):
                 _trend_ctx = f"Monthly CO₂e by fuel: Diesel={kpis['diesel_share']}% of fleet, total={kpis['total_co2e']:,.0f} kg across {kpis['shipment_count']} shipments."
                 _trend_cache_key = "insight_emission_trend"
                 if _trend_cache_key not in st.session_state:
@@ -578,7 +578,7 @@ with main_col:
                     </div>
                     """, unsafe_allow_html=True)
                 # Collapsible AI insight for carrier leaderboard
-                with st.expander("🤖 AI Insight", expanded=False):
+                with st.expander("AI Insight", expanded=False):
                     _top_carrier = leaderboard.iloc[0]
                     _lb_ctx = f"Top carrier: {_top_carrier['carrier_name']} at {_top_carrier['ef_kg_per_tkm']:.4f} kg/tkm. {len(leaderboard)} carriers shown."
                     _lb_cache_key = "insight_carrier_leaderboard"
@@ -744,7 +744,7 @@ with main_col:
             st.plotly_chart(fig_scatter, width='stretch')
 
             # Collapsible AI insight for lane intensity
-            with st.expander("🤖 AI Insight", expanded=False):
+            with st.expander("AI Insight", expanded=False):
                 _li_ctx = f"Lanes: {high_count} high-risk, {med_count} medium, {low_count} low. Total lanes analyzed: {len(lane_df)}."
                 _li_cache_key = "insight_lane_intensity"
                 if _li_cache_key not in st.session_state:
@@ -772,7 +772,7 @@ with main_col:
             st.plotly_chart(fig_risk, width='stretch')
 
             # Collapsible AI insight for risk distribution
-            with st.expander("🤖 AI Insight", expanded=False):
+            with st.expander("AI Insight", expanded=False):
                 _rd_ctx = f"Risk distribution: {high_count} High ({round(high_count/len(lane_df)*100)}%), {med_count} Medium ({round(med_count/len(lane_df)*100)}%), {low_count} Low ({round(low_count/len(lane_df)*100)}%)."
                 _rd_cache_key = "insight_risk_distribution"
                 if _rd_cache_key not in st.session_state:
@@ -801,7 +801,7 @@ with main_col:
         st.plotly_chart(fig_age, width='stretch')
 
         # Collapsible AI insight for vehicle age
-        with st.expander("🤖 AI Insight", expanded=False):
+        with st.expander("AI Insight", expanded=False):
             _avg_age = round(df['vehicle_age'].mean(), 1) if 'vehicle_age' in df.columns else 'N/A'
             _va_ctx = f"Average fleet age: {_avg_age} years. Vehicles older than 5 years incur +1.5%/year emission penalty."
             _va_cache_key = "insight_vehicle_age"
@@ -925,7 +925,7 @@ with main_col:
                     st.plotly_chart(fig_waterfall, width='stretch')
 
                     # Collapsible AI insight for savings breakdown
-                    with st.expander("🤖 AI Insight", expanded=False):
+                    with st.expander("AI Insight", expanded=False):
                         _lever_parts = [f"{l['label']}: {l['savings_co2e']:,.0f} kg ({l['savings_pct']}%)" for l in scenario['levers']]
                         _sw_ctx = f"Savings by lever: {', '.join(_lever_parts)}. Combined: {total['savings_co2e']:,.0f} kg ({total['savings_pct']}%)."
                         st.markdown(generate_chart_insight("Savings Breakdown by Lever", _sw_ctx))
@@ -951,7 +951,7 @@ with main_col:
                 st.plotly_chart(fig_compare, width='stretch')
 
                 # Collapsible AI insight for before vs after
-                with st.expander("🤖 AI Insight", expanded=False):
+                with st.expander("AI Insight", expanded=False):
                     _bva_ctx = f"Before: {total['before_co2e']:,.0f} kg → After: {total['after_co2e']:,.0f} kg. Reduction: {total['savings_co2e']:,.0f} kg ({total['savings_pct']}%)."
                     st.markdown(generate_chart_insight("Before vs After Comparison", _bva_ctx))
 
