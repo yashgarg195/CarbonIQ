@@ -12,7 +12,7 @@ except ImportError:
 
 # ── Hugging Face Setup ───────────────────────────────────────────────────────
 _HF_TOKEN = os.environ.get("HF_API_TOKEN", "")
-_HF_MODEL = os.environ.get("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+_HF_MODEL = os.environ.get("HF_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 _client = None
 
 
