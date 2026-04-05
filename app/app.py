@@ -3,79 +3,211 @@
 import os
 import sys
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
 # Ensure project root is on path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from app.predictor import estimate_emissions, get_all_fuel_types, get_all_vehicle_types
+from app.predictor import estimate_emissions, get_all_fuel_types, get_all_vehicle_types, get_emission_factor
 from app.analytics import (
     summary_kpis,
     top_emission_lanes,
     emission_trend,
     lane_risk_classification,
-    fuel_mix,
     carrier_efficiency_leaderboard,
 )
 from app.simulator import run_combined_scenario, simulate_ev_switch, simulate_load_improvement
 from app.ai_insights import (
     generate_fleet_summary,
     generate_scenario_narrative,
+    generate_chart_insight,
     ask_carbon_agent,
     is_available as ai_is_available,
+)
+
+# ── Shared Plotly dark theme ──────────────────────────────────────────────────
+DARK_LAYOUT = dict(
+    template="plotly_dark",
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
 )
 
 # ── Page Config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="CarbonIQ | Carbon Intelligence",
     layout="wide",
-    initial_sidebar_state="expanded",
+    initial_sidebar_state="collapsed",
 )
 
-# ── Custom CSS ────────────────────────────────────────────────────────────────
-st.markdown("""
+# ── Application State ─────────────────────────────────────────────────────────
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "current_page" not in st.session_state:
+    st.session_state.current_page = "Overview"
+
+_current_page = st.session_state.current_page
+
+# ── Top Ribbon Navigation ────────────────────────────────────────────────────
+# Build the active page indicator for pure-HTML rendering
+_nav_items = [
+    ("Overview", "Overview"),
+    ("Estimator", "Shipment Estimator"),
+    ("Analytics", "Lane Analytics"),
+    ("Simulator", "What-If Simulator"),
+]
+_nav_buttons_html = ""
+for _page_key, _label in _nav_items:
+    _active = _current_page == _page_key
+    _cls = "topnav-btn topnav-active" if _active else "topnav-btn"
+    _nav_buttons_html += f'<div class="{_cls}" data-page="{_page_key}">{_label}</div>'
+
+st.markdown(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
 
     /* Global Typography & Background */
-    .stApp {
+    .stApp {{
         font-family: 'Outfit', sans-serif;
         background: radial-gradient(circle at top right, #1a1c2c, #0f111a);
         color: #e6e6e6;
-    }
+    }}
 
-    /* Hide Streamlit Header & Footer */
-    header[data-testid="stHeader"] {
+    /* Hide Streamlit Header & Footer & Sidebar */
+    header[data-testid="stHeader"] {{
         visibility: hidden;
         height: 0% !important;
-    }
-    footer {
+    }}
+    footer {{
         visibility: hidden;
-    }
-    #MainMenu {
+    }}
+    #MainMenu {{
         visibility: hidden;
-    }
+    }}
+    section[data-testid="stSidebar"] {{
+        display: none !important;
+    }}
+    button[data-testid="baseButton-headerNoPadding"] {{
+        display: none !important;
+    }}
 
-    /* Professional Sidebar */
-    section[data-testid="stSidebar"] {
-        background-color: rgba(22, 27, 34, 0.95);
-        border-right: 1px solid rgba(48, 54, 61, 0.5);
-        backdrop-filter: blur(10px);
-    }
-    
     /* Layout structural spacing */
-    .block-container {
-        padding-top: 2rem !important;
+    .block-container {{
+        padding-top: 0rem !important;
         padding-bottom: 2rem !important;
         padding-left: 3rem !important;
         padding-right: 3rem !important;
         max-width: 100% !important;
-    }
+    }}
 
-    /* Fixed Right AI Console Pane - TARGET ONLY THE TOP-LEVEL LAYOUT */
-    div[data-testid="stMainBlockContainer"] > div > div > div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(2) {
+    /* Push main content below fixed nav */
+    div[data-testid="stMainBlockContainer"] {{
+        padding-top: 70px !important;
+    }}
+
+    /* Hide the hidden nav buttons row + JS iframes from layout */
+    div[data-testid="stMainBlockContainer"] > div > div > div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] > div > div > div > div > button) {{
+        position: absolute !important;
+        top: -9999px !important;
+        height: 0 !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+    }}
+    iframe[height="0"] {{
+        display: none !important;
+    }}
+    div[data-testid="stMainBlockContainer"] > div > div > div[data-testid="stVerticalBlock"] > div:has(iframe[height="0"]) {{
+        display: none !important;
+    }}
+
+    /* ═══════════════════════════════════════════
+       AWS-STYLE TOP NAV BAR
+       ═══════════════════════════════════════════ */
+    .topnav-bar {{
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 350px;
+        height: 60px;
+        z-index: 1005;
+        background: #161b22;
+        border-bottom: 1px solid #30363d;
+        display: flex;
+        align-items: stretch;
+        padding: 0;
+        margin: 0;
+    }}
+    .topnav-brand {{
+        display: flex;
+        align-items: center;
+        padding: 0 28px;
+        border-right: 1px solid #30363d;
+        white-space: nowrap;
+        min-width: fit-content;
+    }}
+    .topnav-brand .brand-name {{
+        font-size: 20px;
+        font-weight: 700;
+        color: #ffffff;
+        letter-spacing: -0.5px;
+    }}
+    .topnav-brand .brand-sub {{
+        font-size: 11px;
+        color: #8b949e;
+        margin-left: 10px;
+        font-weight: 400;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        padding-top: 2px;
+    }}
+    .topnav-items {{
+        display: flex;
+        align-items: stretch;
+        flex: 1;
+    }}
+    .topnav-btn {{
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 32px;
+        font-size: 15px;
+        font-weight: 500;
+        color: #8b949e;
+        cursor: pointer;
+        border-right: 1px solid #30363d;
+        transition: all 0.15s ease;
+        white-space: nowrap;
+        position: relative;
+        user-select: none;
+        flex: 1;
+    }}
+    .topnav-btn:hover {{
+        background: rgba(88, 166, 255, 0.06);
+        color: #c9d1d9;
+    }}
+    .topnav-btn.topnav-active {{
+        color: #ffffff;
+        font-weight: 600;
+        background: rgba(88, 166, 255, 0.08);
+    }}
+    .topnav-btn.topnav-active::after {{
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, #58a6ff, #79c0ff);
+        border-radius: 3px 3px 0 0;
+    }}
+
+    /* ═══════════════════════════════════════════
+       FIXED RIGHT AI CONSOLE PANE
+       ═══════════════════════════════════════════ */
+    div[data-testid="stMainBlockContainer"] > div > div > div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"]:nth-child(2) {{
         position: fixed !important;
         right: 0 !important;
         top: 0 !important;
@@ -87,16 +219,14 @@ st.markdown("""
         z-index: 1000 !important;
         overflow-y: auto !important;
         display: block !important;
-    }
+    }}
 
-    /* Push main content to the left to make room for fixed AI panel */
-    section[data-testid="stMain"] {
+    section[data-testid="stMain"] {{
         margin-right: 350px !important;
         width: calc(100% - 350px) !important;
-    }
+    }}
 
-    /* Fixed Chat Input aligned with fixed AI panel */
-    div[data-testid="stChatInput"] {
+    div[data-testid="stChatInput"] {{
         position: fixed !important;
         bottom: 0 !important;
         right: 0 !important;
@@ -106,91 +236,73 @@ st.markdown("""
         padding: 10px 20px 20px 20px !important;
         z-index: 1001 !important;
         left: auto !important;
-    }
+    }}
 
-    /* AI Header styling (Pinned to top of pane) */
-    .ai-console-header {
-        position: sticky !important;
-        top: 0 !important;
-        background-color: #161b22 !important;
-        z-index: 1002 !important;
-        padding-bottom: 10px !important;
+    .ai-console-header {{
+        position: relative !important;
+        margin-top: -60px !important;      /* Pull header up to negate the column's 60px top padding */
+        margin-left: -24px !important;     /* Pull header left to negate the column's 24px left padding */
+        margin-right: -24px !important;    /* Pull header right to negate the column's 24px right padding */
+        padding: 20px 24px 20px 24px !important; /* Re-apply padding inside the header */
+        margin-bottom: 20px !important;    /* Give proper space before chat starts */
         border-bottom: 1px solid #30363d !important;
-        margin-bottom: 16px !important;
-        margin-top: -20px !important; /* Counteract pane padding */
-    }
-    
-    .ai-console-header h3 {
+        background-color: #161b22 !important;
+    }}
+    .ai-console-header h3 {{
         white-space: nowrap !important;
         margin: 0 !important;
         font-size: 16px !important;
         font-weight: 600 !important;
         color: #58a6ff !important;
-    }
-    .ai-console-header p {
+    }}
+    .ai-console-header p {{
         margin: 0 !important;
         font-size: 12px !important;
         color: #8b949e !important;
-    }
+    }}
 
-    /* Sidebar Navigation Browsing */
-    section[data-testid="stSidebar"] .stButton > button {
-        width: 100%;
-        background-color: transparent;
-        color: #c9d1d9;
-        border: none;
-        border-radius: 4px;
-        padding: 12px 16px;
-        text-align: left;
-        font-weight: 500;
-        font-size: 14px;
-        justify-content: flex-start;
-        transition: background-color 0.1s ease;
-        margin-bottom: 4px;
-    }
-    section[data-testid="stSidebar"] .stButton > button:hover {
-        background-color: #21262d;
-        color: #ffffff;
-    }
 
-    /* KPI Cards - Glassmorphism */
-    .kpi-container {
+
+    /* ═══════════════════════════════════════════
+       KPI CARDS / GLASSMORPHISM
+       ═══════════════════════════════════════════ */
+    .kpi-container {{
         display: flex;
         gap: 24px;
         margin-bottom: 24px;
         flex-wrap: wrap;
-    }
-    .kpi-card {
+    }}
+    .kpi-card {{
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 12px;
         padding: 20px;
         backdrop-filter: blur(5px);
         transition: transform 0.3s ease, border 0.3s ease;
-    }
-    .kpi-card:hover {
+    }}
+    .kpi-card:hover {{
         transform: translateY(-5px);
         border: 1px solid rgba(58, 123, 213, 0.5);
         background: rgba(255, 255, 255, 0.05);
-    }
-    .kpi-value {
+    }}
+    .kpi-value {{
         font-size: 32px;
         font-weight: 700;
         background: linear-gradient(135deg, #fff 0%, #aaa 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin: 8px 0;
-    }
-    .kpi-label {
+    }}
+    .kpi-label {{
         font-size: 11px;
         color: #8b949e;
         text-transform: uppercase;
         letter-spacing: 1.5px;
         font-weight: 600;
-    }
+    }}
 
-    /* AI Card - Neon Accent */
-    .ai-card {
+    /* AI Card */
+    .ai-card {{
         background: linear-gradient(135deg, rgba(35, 134, 54, 0.1) 0%, rgba(16, 21, 26, 0.5) 100%);
         border: 1px solid rgba(35, 134, 54, 0.3);
         border-left: 5px solid #238636;
@@ -198,46 +310,113 @@ st.markdown("""
         padding: 24px;
         margin: 24px 0;
         box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    }
+    }}
     
-    /* Leaderboard Styles */
-    .leaderboard-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 10px;
-    }
-    .leaderboard-row {
-        border-bottom: 1px solid rgba(48, 54, 61, 0.5);
-    }
-    .leaderboard-rank {
-        color: #58a6ff;
-        font-weight: 700;
-        padding: 12px;
-    }
-    .leaderboard-name {
-        padding: 12px;
-        font-weight: 500;
-    }
-    .leaderboard-value {
-        text-align: right;
-        padding: 12px;
-        color: #3fb950;
-        font-weight: 600;
-    }
+    /* Leaderboard */
+    .leaderboard-table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+    .leaderboard-row {{ border-bottom: 1px solid rgba(48, 54, 61, 0.5); }}
+    .leaderboard-rank {{ color: #58a6ff; font-weight: 700; padding: 12px; }}
+    .leaderboard-name {{ padding: 12px; font-weight: 500; }}
+    .leaderboard-value {{ text-align: right; padding: 12px; color: #3fb950; font-weight: 600; }}
 
     /* Page headers */
-    .page-header {
+    .page-header {{
         font-size: 32px;
         font-weight: 700;
         background: linear-gradient(90deg, #fff, #8b949e);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 8px;
-    }
-    
-    /* Fixed Chat Pane logic remains... */
+        margin-bottom: 4px;
+    }}
+    .page-subtitle {{
+        font-size: 14px;
+        color: #8b949e;
+        margin-bottom: 28px;
+    }}
 </style>
+
+<!-- ═══ AWS-STYLE FIXED TOP NAV BAR ═══ -->
+<div class="topnav-bar">
+    <div class="topnav-brand">
+        <span class="brand-name">CarbonIQ</span>
+        <span class="brand-sub">Carbon Intelligence</span>
+    </div>
+    <div class="topnav-items">
+        {_nav_buttons_html}
+    </div>
+</div>
 """, unsafe_allow_html=True)
+
+# Hidden navigation buttons (styled invisible via CSS, clicked via JS from the nav bar)
+_nav_btn_cols = st.columns(4)
+for _i, (_page_key, _label) in enumerate(_nav_items):
+    with _nav_btn_cols[_i]:
+        if st.button(_label, key=f"nav_{_page_key}", width='stretch'):
+            st.session_state.current_page = _page_key
+            st.rerun()
+
+# JavaScript to wire HTML nav clicks -> hidden Streamlit buttons, and hide the button row
+components.html(f"""
+<script>
+(function() {{
+    const labels = {{
+        'Overview': 'Overview',
+        'Estimator': 'Shipment Estimator',
+        'Analytics': 'Lane Analytics',
+        'Simulator': 'What-If Simulator'
+    }};
+
+    function wireNav() {{
+        // Hide the hidden button row
+        const allBtns = parent.document.querySelectorAll('button[data-testid="stBaseButton-secondary"]');
+        const navLabels = new Set(Object.values(labels));
+        allBtns.forEach(btn => {{
+            if (navLabels.has(btn.innerText.trim())) {{
+                let el = btn;
+                for (let i = 0; i < 12; i++) {{
+                    el = el.parentElement;
+                    if (!el) break;
+                    if (el.getAttribute('data-testid') === 'stHorizontalBlock') {{
+                        el.style.position = 'absolute';
+                        el.style.top = '-9999px';
+                        el.style.height = '0';
+                        el.style.overflow = 'hidden';
+                        break;
+                    }}
+                }}
+            }}
+        }});
+
+        // Wire each HTML nav div to click the corresponding hidden Streamlit button
+        const navDivs = parent.document.querySelectorAll('.topnav-btn[data-page]');
+        navDivs.forEach(div => {{
+            div.style.cursor = 'pointer';
+            div.onclick = function() {{
+                const pageKey = div.getAttribute('data-page');
+                const targetLabel = labels[pageKey];
+                const btns = parent.document.querySelectorAll('button[data-testid="stBaseButton-secondary"]');
+                btns.forEach(b => {{
+                    if (b.innerText.trim() === targetLabel) b.click();
+                }});
+            }};
+        }});
+    }}
+
+    // Debounced version to avoid excessive calls
+    let _navTimer = null;
+    function wireNavDebounced() {{
+        if (_navTimer) return;
+        _navTimer = setTimeout(() => {{ _navTimer = null; wireNav(); }}, 300);
+    }}
+
+    wireNav();
+    setTimeout(wireNav, 800);
+    const obs = new MutationObserver(wireNavDebounced);
+    obs.observe(parent.document.body, {{ childList: true, subtree: true }});
+    setTimeout(() => obs.disconnect(), 3000);
+}})()
+</script>
+""", height=0)
 
 
 # ── Load Data ─────────────────────────────────────────────────────────────────
@@ -249,35 +428,60 @@ def load_data():
 
 df = load_data()
 
-# ── Application State ─────────────────────────────────────────────────────────
-if "current_page" not in st.session_state:
-    st.session_state.current_page = "Overview"
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# ── Derive vehicle_age column (not in raw data) ──────────────────────────────
+if "vehicle_age" not in df.columns:
+    rng = np.random.default_rng(seed=42)
+    df["vehicle_age"] = rng.integers(1, 16, size=len(df))  # 1–15 years
 
-# ── Left Ribbon Navigation ────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown("<h3 style='color: #ffffff; padding: 0 16px; margin-bottom: 0;'>CarbonIQ</h3>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #8b949e; font-size: 12px; padding: 0 16px; margin-bottom: 24px;'>Carbon Intelligence</p>", unsafe_allow_html=True)
-
-    st.markdown("<p style='color: #8b949e; font-size: 11px; text-transform: uppercase; font-weight: 600; padding: 0 16px; margin: 16px 0 8px 0;'>Dashboards</p>", unsafe_allow_html=True)
-    if st.button("Overview", key="nav_overview"):
-        st.session_state.current_page = "Overview"
-    
-    st.markdown("<p style='color: #8b949e; font-size: 11px; text-transform: uppercase; font-weight: 600; padding: 0 16px; margin: 16px 0 8px 0;'>Tools</p>", unsafe_allow_html=True)
-    if st.button("Shipment Estimator", key="nav_estimator"):
-        st.session_state.current_page = "Estimator"
-    if st.button("Lane Analytics", key="nav_analytics"):
-        st.session_state.current_page = "Analytics"
-    if st.button("What-If Simulator", key="nav_simulator"):
-        st.session_state.current_page = "Simulator"
-
-    st.markdown("---")
-
-page = st.session_state.current_page
+page = _current_page
 
 # ── Main 3:1 Layout Grid ──────────────────────────────────────────────────────
 main_col, ai_col = st.columns([7, 3], gap="small")
+
+# ══════════════════════════════════════════════════════════════════════════════
+# AI ASSISTANT PANEL (RIGHT COLUMN)
+# ══════════════════════════════════════════════════════════════════════════════
+with ai_col:
+    st.markdown("""
+    <div class="ai-console-header">
+        <h3>CarbonIQ Assistant</h3>
+        <p>Powered by HuggingFace Qwen</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # History container - we use st.container with height to allow internal scrolling 
+    # while the column itself stays sticky to the viewport.
+    chat_container = st.container(height=600, border=False)
+
+    with chat_container:
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+
+
+
+    # Fixed Chat input handled by CSS (pinned to bottom-right)
+    if not ai_is_available():
+        st.warning("[Notice] AI Assistant disabled.")
+    else:
+        if prompt := st.chat_input("Ask CarbonIQ..."):
+            # Add user message to chat history
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            
+            # Immediately display user message
+            with chat_container:
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                
+                # Show Thinking state
+                with st.chat_message("assistant"):
+                    with st.spinner("Thinking..."):
+                        response = ask_carbon_agent(prompt, df)
+                        st.markdown(response)
+            
+            # Add assistant response to chat history
+            st.session_state.messages.append({"role": "assistant", "content": response})
+            st.rerun()
 
 # ══════════════════════════════════════════════════════════════════════════════
 # PAGE 1: Overview Dashboard
@@ -316,10 +520,12 @@ with main_col:
         </div>
         """, unsafe_allow_html=True)
 
-        # AI Summary
+        # AI Summary — cached so it survives chat-triggered reruns
         if ai_is_available():
-            with st.spinner("Generating AI summary..."):
-                ai_summary = generate_fleet_summary(kpis, top_lanes)
+            if "overview_ai_summary" not in st.session_state:
+                with st.spinner("Generating AI summary..."):
+                    st.session_state["overview_ai_summary"] = generate_fleet_summary(kpis, top_lanes)
+            ai_summary = st.session_state["overview_ai_summary"]
             st.markdown(f"""
             <div class="ai-card">
                 <h4>AI-Generated Sustainability Intelligence</h4>
@@ -332,7 +538,7 @@ with main_col:
 
         with col_left:
             st.markdown("#### Monthly Emission Trend (kg CO₂e)")
-            trend_df = emission_trend(df, freq="M")
+            trend_df = emission_trend(df, freq="ME")
             fig_trend = px.area(
                 trend_df,
                 x="date",
@@ -342,16 +548,22 @@ with main_col:
                 labels={"co2e_kg": "", "date": "", "fuel_type": "Fuel"},
             )
             fig_trend.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
+                **DARK_LAYOUT,
                 margin=dict(l=0, r=0, t=10, b=0),
                 legend=dict(orientation="h", yanchor="bottom", y=1.05, xanchor="right", x=1),
                 height=260,
             )
             fig_trend.update_xaxes(showgrid=False)
             fig_trend.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)")
-            st.plotly_chart(fig_trend, use_container_width=True)
+            st.plotly_chart(fig_trend, width='stretch')
+
+            # Collapsible AI insight for emission trend
+            with st.expander("AI Insight", expanded=False):
+                _trend_ctx = f"Monthly CO₂e by fuel: Diesel={kpis['diesel_share']}% of fleet, total={kpis['total_co2e']:,.0f} kg across {kpis['shipment_count']} shipments."
+                _trend_cache_key = "insight_emission_trend"
+                if _trend_cache_key not in st.session_state:
+                    st.session_state[_trend_cache_key] = generate_chart_insight("Monthly Emission Trend", _trend_ctx)
+                st.markdown(st.session_state[_trend_cache_key])
 
         with col_right:
             st.markdown("#### Carrier Efficiency Leaderboard (EPA Dataset)")
@@ -365,6 +577,14 @@ with main_col:
                         <span style="font-size: 12px; color: #3fb950; font-weight: 600;">{row['ef_kg_per_tkm']:.4f} kg/tkm</span>
                     </div>
                     """, unsafe_allow_html=True)
+                # Collapsible AI insight for carrier leaderboard
+                with st.expander("AI Insight", expanded=False):
+                    _top_carrier = leaderboard.iloc[0]
+                    _lb_ctx = f"Top carrier: {_top_carrier['carrier_name']} at {_top_carrier['ef_kg_per_tkm']:.4f} kg/tkm. {len(leaderboard)} carriers shown."
+                    _lb_cache_key = "insight_carrier_leaderboard"
+                    if _lb_cache_key not in st.session_state:
+                        st.session_state[_lb_cache_key] = generate_chart_insight("Carrier Efficiency Leaderboard", _lb_ctx)
+                    st.markdown(st.session_state[_lb_cache_key])
             else:
                 st.info("Generating carrier performance benchmarks...")
 
@@ -387,7 +607,7 @@ with main_col:
             try:
                 carriers_df = pd.read_csv(carrier_performance_path)
                 carrier_list = ["(General / Unknown)"] + sorted(carriers_df["carrier_name"].unique().tolist())
-            except:
+            except Exception:
                 carrier_list = ["(General / Unknown)"]
 
             origin = st.selectbox("Origin City", origins, index=0, key="est_origin")
@@ -402,8 +622,9 @@ with main_col:
             fuel_type = st.selectbox("Fuel Type", get_all_fuel_types(), key="est_fuel")
             vehicle_type = st.selectbox("Vehicle Type", get_all_vehicle_types(), key="est_vehicle")
             load_factor = st.slider("Load Factor", min_value=0.1, max_value=1.0, value=0.8, step=0.05)
+            vehicle_age = st.number_input("Vehicle Age (Years)", min_value=1, max_value=20, value=5, step=1, key="est_age")
 
-            estimate_btn = st.button("Estimate Emissions", use_container_width=True, type="primary")
+            estimate_btn = st.button("Estimate Emissions", width='stretch', type="primary")
 
         with col_result:
             st.markdown("#### Estimation Result")
@@ -421,7 +642,6 @@ with main_col:
                 """, unsafe_allow_html=True)
 
                 # Formula breakdown
-                from app.predictor import get_emission_factor
                 ef = get_emission_factor(fuel_type, vehicle_type)
                 st.markdown("##### Formula Breakdown")
                 st.code(
@@ -454,12 +674,11 @@ with main_col:
                     title={"text": f"Fleet Avg: {fleet_avg:,.1f} kg", "font": {"size": 14}},
                 ))
                 fig_gauge.update_layout(
-                    template="plotly_dark",
-                    paper_bgcolor="rgba(0,0,0,0)",
+                    **DARK_LAYOUT,
                     height=260,
                     margin=dict(l=20, r=20, t=40, b=20),
                 )
-                st.plotly_chart(fig_gauge, use_container_width=True)
+                st.plotly_chart(fig_gauge, width='stretch')
             else:
                 st.info("Fill in the shipment details and click Estimate Emissions to see the result.")
 
@@ -474,7 +693,6 @@ with main_col:
         lane_df = lane_risk_classification(df)
 
         # Risk summary
-        c1, c2, c3 = st.columns(3)
         high_count = len(lane_df[lane_df["risk"] == "High"])
         med_count = len(lane_df[lane_df["risk"] == "Medium"])
         low_count = len(lane_df[lane_df["risk"] == "Low"])
@@ -519,13 +737,19 @@ with main_col:
                 },
             )
             fig_scatter.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor="rgba(0,0,0,0)",
+                **DARK_LAYOUT,
                 height=400,
                 margin=dict(l=20, r=20, t=20, b=20),
             )
-            st.plotly_chart(fig_scatter, use_container_width=True)
+            st.plotly_chart(fig_scatter, width='stretch')
+
+            # Collapsible AI insight for lane intensity
+            with st.expander("AI Insight", expanded=False):
+                _li_ctx = f"Lanes: {high_count} high-risk, {med_count} medium, {low_count} low. Total lanes analyzed: {len(lane_df)}."
+                _li_cache_key = "insight_lane_intensity"
+                if _li_cache_key not in st.session_state:
+                    st.session_state[_li_cache_key] = generate_chart_insight("Lane Emission Intensity vs Volume", _li_ctx)
+                st.markdown(st.session_state[_li_cache_key])
 
         with col_right:
             st.markdown("#### Risk Distribution")
@@ -540,13 +764,50 @@ with main_col:
                 hole=0.5,
             )
             fig_risk.update_layout(
-                template="plotly_dark",
-                paper_bgcolor="rgba(0,0,0,0)",
+                **DARK_LAYOUT,
                 height=300,
                 margin=dict(l=0, r=0, t=10, b=10),
             )
             fig_risk.update_traces(textposition="inside", textinfo="percent+label")
-            st.plotly_chart(fig_risk, use_container_width=True)
+            st.plotly_chart(fig_risk, width='stretch')
+
+            # Collapsible AI insight for risk distribution
+            with st.expander("AI Insight", expanded=False):
+                _rd_ctx = f"Risk distribution: {high_count} High ({round(high_count/len(lane_df)*100)}%), {med_count} Medium ({round(med_count/len(lane_df)*100)}%), {low_count} Low ({round(low_count/len(lane_df)*100)}%)."
+                _rd_cache_key = "insight_risk_distribution"
+                if _rd_cache_key not in st.session_state:
+                    st.session_state[_rd_cache_key] = generate_chart_insight("Risk Distribution", _rd_ctx)
+                st.markdown(st.session_state[_rd_cache_key])
+
+        # Vehicle Age Distribution
+        st.markdown("#### Vehicle Age Distribution")
+        fig_age = px.histogram(
+            df,
+            x="vehicle_age",
+            nbins=15,
+            color_discrete_sequence=["#58a6ff"],
+            labels={"vehicle_age": "Vehicle Age (Years)", "count": "Shipments"},
+        )
+        fig_age.update_layout(
+            **DARK_LAYOUT,
+            height=320,
+            margin=dict(l=20, r=20, t=20, b=20),
+            xaxis_title="Vehicle Age (Years)",
+            yaxis_title="Number of Shipments",
+            bargap=0.1,
+        )
+        fig_age.update_xaxes(showgrid=False)
+        fig_age.update_yaxes(showgrid=True, gridcolor="rgba(255,255,255,0.05)")
+        st.plotly_chart(fig_age, width='stretch')
+
+        # Collapsible AI insight for vehicle age
+        with st.expander("AI Insight", expanded=False):
+            _avg_age = round(df['vehicle_age'].mean(), 1) if 'vehicle_age' in df.columns else 'N/A'
+            _va_ctx = f"Average fleet age: {_avg_age} years. Vehicles older than 5 years incur +1.5%/year emission penalty."
+            _va_cache_key = "insight_vehicle_age"
+            if _va_cache_key not in st.session_state:
+                st.session_state[_va_cache_key] = generate_chart_insight("Vehicle Age Distribution", _va_ctx)
+            st.markdown(st.session_state[_va_cache_key])
 
         # Lane table
         st.markdown("#### Detailed Lane Data")
@@ -560,7 +821,7 @@ with main_col:
 
         st.dataframe(
             display_df,
-            use_container_width=True,
+            width='stretch',
             hide_index=True,
             column_config={
                 "Risk": st.column_config.TextColumn("Risk", help="Emission intensity risk level"),
@@ -588,7 +849,7 @@ with main_col:
             reroute_pct = st.slider("Route Optimization (%)", 0, 30, 10, 1, key="sim_reroute")
 
             st.markdown("---")
-            run_btn = st.button("Run Scenario", use_container_width=True, type="primary")
+            run_btn = st.button("Run Scenario", width='stretch', type="primary")
 
         with col_results:
             if run_btn:
@@ -654,16 +915,20 @@ with main_col:
                         textposition="outside",
                     ))
 
-                fig_waterfall.update_layout(
-                    template="plotly_dark",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
-                    showlegend=False,
-                    height=400,
-                    margin=dict(l=20, r=20, t=30, b=20),
-                    yaxis_title="CO₂e Saved (kg)",
-                )
-                st.plotly_chart(fig_waterfall, use_container_width=True)
+                    fig_waterfall.update_layout(
+                        **DARK_LAYOUT,
+                        showlegend=False,
+                        height=400,
+                        margin=dict(l=20, r=20, t=30, b=20),
+                        yaxis_title="CO₂e Saved (kg)",
+                    )
+                    st.plotly_chart(fig_waterfall, width='stretch')
+
+                    # Collapsible AI insight for savings breakdown
+                    with st.expander("AI Insight", expanded=False):
+                        _lever_parts = [f"{l['label']}: {l['savings_co2e']:,.0f} kg ({l['savings_pct']}%)" for l in scenario['levers']]
+                        _sw_ctx = f"Savings by lever: {', '.join(_lever_parts)}. Combined: {total['savings_co2e']:,.0f} kg ({total['savings_pct']}%)."
+                        st.markdown(generate_chart_insight("Savings Breakdown by Lever", _sw_ctx))
 
                 # Before vs After comparison
                 st.markdown("#### Before vs After")
@@ -677,15 +942,18 @@ with main_col:
                     width=0.5,
                 ))
                 fig_compare.update_layout(
-                    template="plotly_dark",
-                    paper_bgcolor="rgba(0,0,0,0)",
-                    plot_bgcolor="rgba(0,0,0,0)",
+                    **DARK_LAYOUT,
                     showlegend=False,
                     height=350,
                     margin=dict(l=20, r=20, t=20, b=20),
                     yaxis_title="Total CO₂e (kg)",
                 )
-                st.plotly_chart(fig_compare, use_container_width=True)
+                st.plotly_chart(fig_compare, width='stretch')
+
+                # Collapsible AI insight for before vs after
+                with st.expander("AI Insight", expanded=False):
+                    _bva_ctx = f"Before: {total['before_co2e']:,.0f} kg → After: {total['after_co2e']:,.0f} kg. Reduction: {total['savings_co2e']:,.0f} kg ({total['savings_pct']}%)."
+                    st.markdown(generate_chart_insight("Before vs After Comparison", _bva_ctx))
 
                 # AI Narrative
                 if ai_is_available():
@@ -708,70 +976,21 @@ with main_col:
                 full_ev = simulate_ev_switch(df, 100)
                 full_cons = simulate_load_improvement(df, 30) # Max 100% load
                 
-                rec_col1, rec_col2 = st.columns(2)
-                with rec_col1:
-                    st.markdown(f"""
-                    <div style="background: rgba(88, 166, 255, 0.05); border: 1px dashed rgba(88, 166, 255, 0.3); border-radius: 10px; padding: 16px;">
+                st.markdown(f"""
+                <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 250px; background: rgba(88, 166, 255, 0.05); border: 1px dashed rgba(88, 166, 255, 0.3); border-radius: 10px; padding: 16px;">
                         <div style="font-size: 11px; color: #58a6ff; font-weight: 700; text-transform: uppercase;">Next-Best Technology</div>
                         <div style="font-size: 16px; font-weight: 600; margin: 8px 0;">100% EV Transition</div>
                         <div style="font-size: 12px; color: #c9d1d9;">Predicted impact: <span style="color: #3fb950; font-weight: 700;">-{full_ev['savings_pct']}% CO₂e</span></div>
                     </div>
-                    """, unsafe_allow_html=True)
-                
-                with rec_col2:
-                    st.markdown(f"""
-                    <div style="background: rgba(63, 185, 80, 0.05); border: 1px dashed rgba(63, 185, 80, 0.3); border-radius: 10px; padding: 16px;">
+                    <div style="flex: 1; min-width: 250px; background: rgba(63, 185, 80, 0.05); border: 1px dashed rgba(63, 185, 80, 0.3); border-radius: 10px; padding: 16px;">
                         <div style="font-size: 11px; color: #3fb950; font-weight: 700; text-transform: uppercase;">Next-Best Efficiency</div>
                         <div style="font-size: 16px; font-weight: 600; margin: 8px 0;">Max Load Consolidation</div>
                         <div style="font-size: 12px; color: #c9d1d9;">Predicted impact: <span style="color: #3fb950; font-weight: 700;">-{full_cons['savings_pct']}% CO₂e</span></div>
                     </div>
-                    """, unsafe_allow_html=True)
+                </div>
+                """, unsafe_allow_html=True)
 
             else:
                 st.info("Adjust the scenario levers and click 'Run Scenario' to see projected emission reductions and strategic recommendations.")
 
-# ══════════════════════════════════════════════════════════════════════════════
-# ══════════════════════════════════════════════════════════════════════════════
-# ══════════════════════════════════════════════════════════════════════════════
-# ══════════════════════════════════════════════════════════════════════════════
-# AI ASSISTANT PANEL (RIGHT COLUMN)
-# ══════════════════════════════════════════════════════════════════════════════
-with ai_col:
-    st.markdown("""
-    <div class="ai-console-header">
-        <h3>CarbonIQ Assistant</h3>
-        <p>Powered by HuggingFace Qwen</p>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # History container - we use st.container with height to allow internal scrolling 
-    # while the column itself stays sticky to the viewport.
-    chat_container = st.container(height=600, border=False)
-
-    with chat_container:
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-
-    # Fixed Chat input handled by CSS (pinned to bottom-right)
-    if not ai_is_available():
-        st.warning("[Notice] AI Assistant disabled.")
-    else:
-        if prompt := st.chat_input("Ask CarbonIQ..."):
-            # Add user message to chat history
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            
-            # Immediately display user message
-            with chat_container:
-                with st.chat_message("user"):
-                    st.markdown(prompt)
-                
-                # Show Thinking state
-                with st.chat_message("assistant"):
-                    with st.spinner("Thinking..."):
-                        response = ask_carbon_agent(f"{prompt}", df)
-                        st.markdown(response)
-            
-            # Add assistant response to chat history
-            st.session_state.messages.append({"role": "assistant", "content": response})
-            st.rerun()

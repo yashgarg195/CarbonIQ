@@ -12,7 +12,7 @@ except ImportError:
 
 # ── Hugging Face Setup ───────────────────────────────────────────────────────
 _HF_TOKEN = os.environ.get("HF_API_TOKEN", "")
-_HF_MODEL = os.environ.get("HF_MODEL", "Qwen/Qwen2.5-72B-Instruct")
+_HF_MODEL = os.environ.get("HF_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 _client = None
 
 
@@ -84,11 +84,11 @@ Data:
 - Total shipments: {kpis['shipment_count']}
 - Average per shipment: {kpis['avg_per_shipment']:,.1f} kg CO₂e
 - Diesel share: {kpis['diesel_share']}%
-- Highest emission lane: {kpis['worst_lane']}
+- Average fleet age: {kpis['avg_fleet_age']} years
 - Top emission lanes:
 {top_lanes_str}
 
-Write the summary in a professional but accessible tone. No bullet points, just flowing prose."""
+Write the summary in a professional but accessible tone. Mention how fleet age affects overall efficiency. No bullet points, just flowing prose."""
 
     try:
         result = _generate(system_msg, user_msg)
@@ -106,9 +106,10 @@ def _fallback_fleet_summary(kpis: dict, top_lanes: pd.DataFrame) -> str:
         f"Your fleet generated **{kpis['total_co2e']:,.0f} kg CO₂e** across "
         f"**{kpis['shipment_count']}** shipments (avg "
         f"**{kpis['avg_per_shipment']:,.1f} kg** per shipment). "
-        f"Diesel vehicles account for **{kpis['diesel_share']}%** of the fleet. "
+        f"Diesel vehicles account for **{kpis['diesel_share']}%** of the fleet "
+        f"with an average vehicle age of **{kpis.get('avg_fleet_age', 'N/A')} years**. "
         f"The highest-emission lane is **{kpis['worst_lane']}**. "
-        f"Consider transitioning diesel vehicles to EV or CNG to reduce emissions."
+        f"Consider transitioning diesel vehicles to EV or CNG and replacing older vehicles to reduce emissions."
     )
 
 
@@ -207,6 +208,7 @@ If the data doesn't contain enough information, say so honestly."""
 - Fuel breakdown: {fuel_breakdown}
 - Vehicle breakdown: {vehicle_breakdown}
 - Average load factor: {avg_load:.2f}
+- Average vehicle age: {df['vehicle_age'].mean():.1f} years
 - Top 5 emission routes:
 {routes_str}
 
@@ -219,3 +221,33 @@ User question: {question}"""
         return "[Error] Could not generate a response. Please try again."
     except Exception as e:
         return f"[Error] Error generating response: {e}"
+
+
+# ── Chart-Level AI Insights ──────────────────────────────────────────────────
+
+def generate_chart_insight(chart_name: str, data_context: str) -> str:
+    """
+    Generate a short 1-2 sentence AI insight for an individual chart.
+
+    Args:
+        chart_name: Human-readable chart title.
+        data_context: A short string summarizing the key data points.
+
+    Returns:
+        Brief AI-generated insight string.
+    """
+    system_msg = (
+        "You are CarbonIQ, a sustainability analytics assistant. "
+        "Write exactly 2 concise sentences interpreting the chart data. "
+        "Be specific with numbers. No bullet points."
+    )
+    user_msg = f"Chart: {chart_name}\nData: {data_context}\n\nProvide a brief analytical insight."
+
+    try:
+        result = _generate(system_msg, user_msg, max_tokens=150)
+        if result:
+            return result
+    except Exception as e:
+        print(f"[Error] Chart insight generation failed: {e}")
+
+    return f"This chart shows the distribution and trends for {chart_name.lower()}. Review the data points above for detailed analysis."

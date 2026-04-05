@@ -1,8 +1,10 @@
 """Analytics functions for CarbonIQ — KPIs, lane analysis, and trends."""
 
 import pandas as pd
+import streamlit as st
 
 
+@st.cache_data
 def summary_kpis(df: pd.DataFrame) -> dict:
     """
     Compute fleet-wide KPI summary.
@@ -32,6 +34,7 @@ def summary_kpis(df: pd.DataFrame) -> dict:
 
     diesel_count = len(df[df["fuel_type"] == "Diesel"])
     diesel_share = round(diesel_count / shipment_count * 100, 1) if shipment_count else 0
+    avg_fleet_age = round(df["vehicle_age"].mean(), 1) if "vehicle_age" in df.columns else 0
 
     return {
         "total_co2e": total_co2e,
@@ -40,9 +43,11 @@ def summary_kpis(df: pd.DataFrame) -> dict:
         "worst_lane": worst_lane,
         "best_lane": best_lane,
         "diesel_share": diesel_share,
+        "avg_fleet_age": avg_fleet_age,
     }
 
 
+@st.cache_data
 def top_emission_lanes(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     """
     Return top-N origin→destination pairs by total CO₂e.
@@ -69,13 +74,14 @@ def top_emission_lanes(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     return lanes
 
 
-def emission_trend(df: pd.DataFrame, freq: str = "M") -> pd.DataFrame:
+@st.cache_data
+def emission_trend(df: pd.DataFrame, freq: str = "ME") -> pd.DataFrame:
     """
     Compute emission totals over time, grouped by fuel type.
 
     Args:
         df: Shipment DataFrame with 'date', 'co2e_kg', and 'fuel_type' columns.
-        freq: Pandas frequency alias ('W' for weekly, 'M' for monthly).
+        freq: Pandas frequency alias ('W' for weekly, 'ME' for month-end).
 
     Returns:
         DataFrame with columns: date, fuel_type, co2e_kg.
@@ -91,6 +97,7 @@ def emission_trend(df: pd.DataFrame, freq: str = "M") -> pd.DataFrame:
     return trend
 
 
+@st.cache_data
 def lane_risk_classification(df: pd.DataFrame) -> pd.DataFrame:
     """
     Classify lanes as High / Medium / Low emission intensity.
@@ -119,18 +126,7 @@ def lane_risk_classification(df: pd.DataFrame) -> pd.DataFrame:
     return lanes.sort_values("intensity", ascending=False)
 
 
-def fuel_mix(df: pd.DataFrame) -> pd.DataFrame:
-    """Return fuel type distribution for the fleet."""
-    mix = (
-        df.groupby("fuel_type")["shipment_id"]
-        .count()
-        .reset_index()
-        .rename(columns={"shipment_id": "count"})
-    )
-    mix["percentage"] = (mix["count"] / mix["count"].sum() * 100).round(1)
-    return mix
-
-
+@st.cache_data
 def carrier_efficiency_leaderboard(df: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     """
     Return top-N carriers by emission efficiency.
@@ -138,12 +134,15 @@ def carrier_efficiency_leaderboard(df: pd.DataFrame, n: int = 10) -> pd.DataFram
     """
     if 'carrier_name' not in df.columns:
         return pd.DataFrame()
-        
+
+    df_c = df.copy()
+    df_c["_tkm"] = df_c["distance_km"] * df_c["weight_tonnes"]
+
     carriers = (
-        df.groupby("carrier_name")
+        df_c.groupby("carrier_name")
         .agg(
             total_co2e=("co2e_kg", "sum"),
-            total_tkm=("distance_km", lambda x: (x * df.loc[x.index, "weight_tonnes"]).sum()),
+            total_tkm=("_tkm", "sum"),
             shipment_count=("shipment_id", "count")
         )
         .reset_index()
@@ -152,3 +151,4 @@ def carrier_efficiency_leaderboard(df: pd.DataFrame, n: int = 10) -> pd.DataFram
     carriers = carriers[carriers['shipment_count'] > 0]
     carriers["ef_kg_per_tkm"] = (carriers["total_co2e"] / carriers["total_tkm"]).round(4)
     return carriers.sort_values("ef_kg_per_tkm").head(n)
+
